@@ -40,7 +40,7 @@ func TestServerMessageDispatching(t *testing.T) {
 		d := NewStandardDispatcher()
 		err = d.AddMsgHandler("/address/test", func(msg *Message) {
 			if len(msg.Arguments) != 1 {
-				t.Error("Argument length should be 1 and is: " + string(len(msg.Arguments)))
+				t.Error("Argument length should be 1 and is: " + string(rune(len(msg.Arguments))))
 			}
 
 			if msg.Arguments[0].(int32) != 1122 {
