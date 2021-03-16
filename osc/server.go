@@ -123,7 +123,7 @@ func readPacket(reader *bytes.Buffer, start *int, end int) (Packet, error) {
 	return nil, fmt.Errorf("readPacket: invalid packet")
 }
 
-// readBundle reads an Bundle from reader.
+// readBundle reads a Bundle from reader.
 func readBundle(reader *bytes.Buffer, start *int, end int) (*Bundle, error) {
 	// Read the '#bundle' OSC string
 	var startTag string
@@ -217,7 +217,7 @@ func readArguments(msg *Message, reader *bytes.Buffer, start *int) error {
 				return err
 			}
 			*start += 4
-			msg.Append(i)
+			msg.Arguments = append(msg.Arguments, i)
 
 		case 'h': // int64
 			var i int64
@@ -225,7 +225,7 @@ func readArguments(msg *Message, reader *bytes.Buffer, start *int) error {
 				return err
 			}
 			*start += 8
-			msg.Append(i)
+			msg.Arguments = append(msg.Arguments, i)
 
 		case 'f': // float32
 			var f float32
@@ -233,7 +233,7 @@ func readArguments(msg *Message, reader *bytes.Buffer, start *int) error {
 				return err
 			}
 			*start += 4
-			msg.Append(f)
+			msg.Arguments = append(msg.Arguments, f)
 
 		case 'd': // float64/double
 			var d float64
@@ -241,7 +241,7 @@ func readArguments(msg *Message, reader *bytes.Buffer, start *int) error {
 				return err
 			}
 			*start += 8
-			msg.Append(d)
+			msg.Arguments = append(msg.Arguments, d)
 
 		case 's': // string
 			// TODO: fix reading string value
@@ -250,7 +250,7 @@ func readArguments(msg *Message, reader *bytes.Buffer, start *int) error {
 				return err
 			}
 			*start += len(s) + padBytesNeeded(len(s))
-			msg.Append(s)
+			msg.Arguments = append(msg.Arguments, s)
 
 		case 'b': // blob
 			var buf []byte
@@ -259,7 +259,7 @@ func readArguments(msg *Message, reader *bytes.Buffer, start *int) error {
 				return err
 			}
 			*start += n
-			msg.Append(buf)
+			msg.Arguments = append(msg.Arguments, buf)
 
 		case 't': // OSC time tag
 			var tt uint64
@@ -267,16 +267,16 @@ func readArguments(msg *Message, reader *bytes.Buffer, start *int) error {
 				return nil
 			}
 			*start += 8
-			msg.Append(NewTimetagFromTimetag(tt))
+			msg.Arguments = append(msg.Arguments, NewTimetagFromTimetag(tt))
 
 		case 'N': // nil
-			msg.Append(nil)
+			msg.Arguments = append(msg.Arguments, nil)
 
 		case 'T': // true
-			msg.Append(true)
+			msg.Arguments = append(msg.Arguments, true)
 
 		case 'F': // false
-			msg.Append(false)
+			msg.Arguments = append(msg.Arguments, false)
 		}
 	}
 
