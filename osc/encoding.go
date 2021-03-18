@@ -16,14 +16,14 @@ var padBytes = make([]byte, 4)
 func readBlob(reader *bytes.Buffer) ([]byte, int, error) {
 	// First, get the length
 	var blobLen int32
-	if err = binary.Read(reader, binary.BigEndian, &blobLen); err != nil {
+	if err := binary.Read(reader, binary.BigEndian, &blobLen); err != nil {
 		return nil, 0, err
 	}
-	n = 4 + int(blobLen)
+	n := 4 + int(blobLen)
 
 	// Read the data
 	blob := make([]byte, blobLen)
-	if _, err = reader.Read(blob); err != nil {
+	if _, err := reader.Read(blob); err != nil {
 		return nil, 0, err
 	}
 
@@ -42,19 +42,19 @@ func readBlob(reader *bytes.Buffer) ([]byte, int, error) {
 func writeBlob(data []byte, buf *bytes.Buffer) (int, error) {
 	// Add the size of the blob
 	dlen := int32(len(data))
-	if err = binary.Write(buf, binary.BigEndian, dlen); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, dlen); err != nil {
 		return 0, err
 	}
 
 	// Write the data
-	if _, err = buf.Write(data); err != nil {
+	if _, err := buf.Write(data); err != nil {
 		return 0, nil
 	}
 
 	// Add padding bytes if necessary
 	numPadBytes := padBytesNeeded(len(data))
 	if numPadBytes > 0 {
-		n, err = buf.Write(padBytes[:numPadBytes])
+		n, err := buf.Write(padBytes[:numPadBytes])
 		if err != nil {
 			return 0, err
 		}
@@ -68,33 +68,32 @@ func writeBlob(data []byte, buf *bytes.Buffer) (int, error) {
 // bytes are removed from the reader.
 func readPaddedString(reader *bytes.Buffer) (string, int, error) {
 	//Read the string from the reader
-	var strn string
-	strn, err = reader.ReadString(0)
+	str, err := reader.ReadString(0)
 	if err != nil {
 		return "", 0, err
 	}
 
-	n = len(strn)
+	n := len(str)
 
 	// Remove the string delimiter, in order to calculate the right amount
 	// of padding bytes
-	strn = strn[:n-1]
+	str = str[:n-1]
 
 	// Remove the padding bytes
-	padLen := padBytesNeeded(len(strn)) - 1
+	padLen := padBytesNeeded(len(str)) - 1
 	if padLen > 0 {
 		n += padLen
 		reader.Next(padLen)
 	}
 
-	return strn, n, nil
+	return str, n, nil
 }
 
 // writePaddedString writes a string with padding bytes to the a buffer.
 // Returns, the number of written bytes and an error if any.
 func writePaddedString(str string, buf *bytes.Buffer) (int, error) {
 	// Write the string to the buffer
-	n, err = buf.WriteString(str)
+	n, err := buf.WriteString(str)
 	if err != nil {
 		return 0, err
 	}

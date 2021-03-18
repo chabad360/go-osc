@@ -38,7 +38,7 @@ func TestMessage_TypeTags(t *testing.T) {
 		tags string
 		ok   bool
 	}{
-		{"addr_only", NewMessage("/"), ",", true},
+		{"addr_only", NewMessage("/"), "", true},
 		{"nil", NewMessage("/", nil), ",N", true},
 		{"bool_true", NewMessage("/", true), ",T", true},
 		{"bool_false", NewMessage("/", false), ",F", true},
@@ -77,7 +77,7 @@ func TestMessage_String(t *testing.T) {
 		str  string
 	}{
 		{"nil", nil, ""},
-		{"addr_only", NewMessage("/foo/bar"), "/foo/bar ,"},
+		{"addr_only", NewMessage("/foo/bar"), "/foo/bar "},
 		{"one_addr", NewMessage("/foo/bar", "123"), "/foo/bar ,s 123"},
 		{"two_args", NewMessage("/foo/bar", "123", int32(456)), "/foo/bar ,si 123 456"},
 	} {

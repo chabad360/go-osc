@@ -50,7 +50,7 @@ func getRegEx(pattern string) *regexp.Regexp {
 func GetTypeTag(arg interface{}) (string, error) {
 	switch t := arg.(type) {
 	case bool:
-		if arg.(bool) {
+		if t {
 			return "T", nil
 		}
 		return "F", nil

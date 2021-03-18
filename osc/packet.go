@@ -75,17 +75,17 @@ func (msg *Message) ClearData() {
 // Match returns true, if the OSC address pattern of the OSC Message matches the given
 // address. The match is case sensitive!
 func (msg *Message) Match(addr string) bool {
-	exp := getRegEx(msg.Address)
-	if exp.MatchString(addr) {
-		return true
-	}
-	return false
+	return getRegEx(msg.Address).MatchString(addr)
 }
 
 // TypeTags returns the type tag string.
 func (msg *Message) TypeTags() (string, error) {
 	if msg == nil {
 		return "", fmt.Errorf("message is nil")
+	}
+
+	if len(msg.Arguments) == 0 {
+		return "", nil
 	}
 
 	tags := []byte{','}
@@ -162,7 +162,7 @@ func (msg *Message) MarshalBinary() ([]byte, error) {
 			return nil, fmt.Errorf("OSC - unsupported type: %T", t)
 
 		case bool:
-			if arg.(bool) == true {
+			if t {
 				typetags = append(typetags, 'T')
 			} else {
 				typetags = append(typetags, 'F')
@@ -209,8 +209,7 @@ func (msg *Message) MarshalBinary() ([]byte, error) {
 
 		case Timetag:
 			typetags = append(typetags, 't')
-			timeTag := arg.(Timetag)
-			b, err := timeTag.MarshalBinary()
+			b, err := t.MarshalBinary()
 			if err != nil {
 				return nil, err
 			}
@@ -270,13 +269,12 @@ func (b *Bundle) Append(pck Packet) error {
 func (b *Bundle) MarshalBinary() ([]byte, error) {
 	// Add the '#bundle' string
 	data := new(bytes.Buffer)
-	if _, err = writePaddedString("#bundle", data); err != nil {
+	if _, err := writePaddedString("#bundle", data); err != nil {
 		return nil, err
 	}
 
 	// Add the time tag
-	var bd []byte
-	bd, err = b.Timetag.MarshalBinary()
+	bd, err := b.Timetag.MarshalBinary()
 	if err != nil {
 		return nil, err
 	}
@@ -286,8 +284,7 @@ func (b *Bundle) MarshalBinary() ([]byte, error) {
 
 	// Process all OSC Messages
 	for _, m := range b.Messages {
-		var buf []byte
-		buf, err = m.MarshalBinary()
+		buf, err := m.MarshalBinary()
 		if err != nil {
 			return nil, err
 		}
@@ -305,8 +302,7 @@ func (b *Bundle) MarshalBinary() ([]byte, error) {
 
 	// Process all OSC Bundles
 	for _, b := range b.Bundles {
-		var buf []byte
-		buf, err = b.MarshalBinary()
+		buf, err := b.MarshalBinary()
 		if err != nil {
 			return nil, err
 		}

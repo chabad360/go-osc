@@ -6,14 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 )
 
 var (
 	data = make([]byte, 65535)
 	buf  = bytes.NewBuffer(data)
-	n    int
-	err  error
+	l    sync.Mutex
 )
 
 // Server represents an OSC server. The server listens on Address and Port for
@@ -74,12 +74,12 @@ func (s *Server) ReceivePacket(c net.PacketConn) (Packet, error) {
 // readFromConnection retrieves OSC packets.
 func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
 	if s.ReadTimeout != 0 {
-		if err = c.SetReadDeadline(time.Now().Add(s.ReadTimeout)); err != nil {
+		if err := c.SetReadDeadline(time.Now().Add(s.ReadTimeout)); err != nil {
 			return nil, err
 		}
 	}
 
-	n, _, err = c.ReadFrom(data)
+	n, _, err := c.ReadFrom(data)
 	if err != nil {
 		return nil, err
 	}
@@ -97,13 +97,16 @@ func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
 // ParsePacket parses the given msg string and returns a Packet
 func ParsePacket(msg string) (Packet, error) {
 	var start int
+	//l.Lock()
+	//defer l.Unlock()
+	//buf.Reset()
+	//buf.WriteString(msg)
 	return readPacket(bytes.NewBufferString(msg), &start, len(msg))
 }
 
 // receivePacket receives an OSC packet from the given reader.
 func readPacket(reader *bytes.Buffer, start *int, end int) (Packet, error) {
-	var b byte
-	b, err = reader.ReadByte()
+	b, err := reader.ReadByte()
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +129,7 @@ func readPacket(reader *bytes.Buffer, start *int, end int) (Packet, error) {
 // readBundle reads a Bundle from reader.
 func readBundle(reader *bytes.Buffer, start *int, end int) (*Bundle, error) {
 	// Read the '#bundle' OSC string
-	var startTag string
-	startTag, n, err = readPaddedString(reader)
+	startTag, n, err := readPaddedString(reader)
 	if err != nil {
 		return nil, err
 	}
@@ -172,8 +174,7 @@ func readBundle(reader *bytes.Buffer, start *int, end int) (*Bundle, error) {
 // readMessage from `reader`.
 func readMessage(reader *bytes.Buffer, start *int) (*Message, error) {
 	// First, read the OSC address
-	var addr string
-	addr, n, err = readPaddedString(reader)
+	addr, n, err := readPaddedString(reader)
 	if err != nil {
 		return nil, err
 	}
@@ -191,12 +192,15 @@ func readMessage(reader *bytes.Buffer, start *int) (*Message, error) {
 // readArguments from `reader` and add them to the OSC message `msg`.
 func readArguments(msg *Message, reader *bytes.Buffer, start *int) error {
 	// Read the type tag string
-	var typetags string
-	typetags, n, err = readPaddedString(reader)
+	typetags, n, err := readPaddedString(reader)
 	if err != nil {
 		return err
 	}
 	*start += n
+
+	if len(typetags) == 0 {
+		return nil
+	}
 
 	// If the typetag doesn't start with ',', it's not valid
 	if typetags[0] != ',' {
