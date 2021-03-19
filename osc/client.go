@@ -48,8 +48,6 @@ func (c *Client) Send(packet Packet) error {
 		return err
 	}
 
-	if _, err = conn.Write(data); err != nil {
-		return err
-	}
-	return nil
+	_, err = conn.Write(data)
+	return err
 }
