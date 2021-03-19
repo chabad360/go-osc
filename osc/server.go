@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 	"time"
@@ -79,19 +80,19 @@ func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
 		}
 	}
 
-	n, _, err := c.ReadFrom(data)
-	if err != nil {
-		return nil, err
+	reader, ok := c.(io.Reader)
+	if !ok {
+		return nil, fmt.Errorf("readFromConnection: c is not a io.Reader")
 	}
 
 	buf.Reset()
-	_, err = buf.Write(data)
+	n, err := buf.ReadFrom(reader)
 	if err != nil {
 		return nil, err
 	}
 
 	var start int
-	return readPacket(buf, &start, n)
+	return readPacket(buf, &start, int(n))
 }
 
 // ParsePacket parses the given msg string and returns a Packet
