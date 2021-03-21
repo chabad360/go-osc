@@ -72,20 +72,16 @@ func (s *Server) ReceivePacket(c net.PacketConn) (Packet, error) {
 	return s.readFromConnection(c)
 }
 
-type base struct {
-	c net.PacketConn
+type glue struct {
+	net.PacketConn
 }
 
-func (b base) Read(buf []byte) (int, error) {
-	n, _, err := b.c.ReadFrom(buf)
-	if err != nil {
-		return n, err
+func (g glue) Read(buf []byte) (n int, err error) {
+	n, _, err = g.ReadFrom(buf)
+	if err == nil {
+		err = io.EOF
 	}
-	return n, io.EOF
-}
-
-func packetConnToReader(c net.PacketConn) io.Reader {
-	return &base{c}
+	return
 }
 
 // readFromConnection retrieves OSC packets.
@@ -96,15 +92,8 @@ func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
 		}
 	}
 
-	//r := &base{c}
-
-	//n, err := c.(net.UDPConn).Read(data)
-	//if err != nil {
-	//	return nil, err
-	//}
-
 	buf.Reset()
-	n, err := buf.ReadFrom(&base{c})
+	n, err := buf.ReadFrom(&glue{c})
 	if err != nil {
 		return nil, err
 	}
