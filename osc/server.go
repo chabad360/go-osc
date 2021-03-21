@@ -77,7 +77,10 @@ type base struct {
 }
 
 func (b base) Read(buf []byte) (int, error) {
-	n, _, _ := b.c.ReadFrom(buf)
+	n, _, err := b.c.ReadFrom(buf)
+	if err != nil {
+		return n, err
+	}
 	return n, io.EOF
 }
 
