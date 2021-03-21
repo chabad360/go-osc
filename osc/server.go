@@ -72,6 +72,19 @@ func (s *Server) ReceivePacket(c net.PacketConn) (Packet, error) {
 	return s.readFromConnection(c)
 }
 
+type base struct {
+	c net.PacketConn
+}
+
+func (b base) Read(buf []byte) (int, error) {
+	n, _, _ := b.c.ReadFrom(buf)
+	return n, io.EOF
+}
+
+func packetConnToReader(c net.PacketConn) io.Reader {
+	return &base{c}
+}
+
 // readFromConnection retrieves OSC packets.
 func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
 	if s.ReadTimeout != 0 {
@@ -80,13 +93,15 @@ func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
 		}
 	}
 
-	reader, ok := c.(io.Reader)
-	if !ok {
-		return nil, fmt.Errorf("readFromConnection: c is not a io.Reader")
-	}
+	//r := &base{c}
+
+	//n, err := c.(net.UDPConn).Read(data)
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	buf.Reset()
-	n, err := buf.ReadFrom(reader)
+	n, err := buf.ReadFrom(&base{c})
 	if err != nil {
 		return nil, err
 	}
