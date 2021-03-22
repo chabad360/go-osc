@@ -10,9 +10,6 @@ import (
 	"unsafe"
 )
 
-//var str strings.Builder
-var str []byte
-
 // Packet is the interface for Message and Bundle.
 type Packet interface {
 	encoding.BinaryMarshaler
@@ -101,6 +98,8 @@ func (msg *Message) TypeTags() (string, error) {
 	return string(tags), nil
 }
 
+var strBuf []byte
+
 // String implements the fmt.Stringer interface.
 func (msg *Message) String() string {
 	if msg == nil {
@@ -109,29 +108,33 @@ func (msg *Message) String() string {
 
 	tags, _ := msg.TypeTags()
 
-	str = str[len(str):]
-	str = append(str, msg.Address...)
-	str = append(str, ' ')
-	str = append(str, tags...)
+	strBuf = strBuf[:0]
+	strBuf = append(strBuf, msg.Address...)
+	if len(tags) == 0 {
+		return *(*string)(unsafe.Pointer(&strBuf))
+	}
+
+	strBuf = append(strBuf, ' ')
+	strBuf = append(strBuf, tags...)
 
 	for _, arg := range msg.Arguments {
 		switch arg.(type) {
 		case bool, int32, int64, float32, float64, string:
-			str = append(str, fmt.Sprintf(" %v", arg)...)
+			strBuf = append(strBuf, fmt.Sprintf(" %v", arg)...)
 
 		case nil:
-			str = append(str, " Nil"...)
+			strBuf = append(strBuf, " Nil"...)
 
 		case []byte:
-			str = append(str, " blob"...)
+			strBuf = append(strBuf, " blob"...)
 
 		case Timetag:
 			timeTag := arg.(Timetag)
-			str = append(str, fmt.Sprintf(" %d", timeTag.TimeTag())...)
+			strBuf = append(strBuf, fmt.Sprintf(" %d", timeTag.TimeTag())...)
 		}
 	}
 
-	return *(*string)(unsafe.Pointer(&str))
+	return *(*string)(unsafe.Pointer(&strBuf))
 }
 
 // CountArguments returns the number of arguments.
@@ -174,13 +177,13 @@ func (msg *Message) MarshalBinary() ([]byte, error) {
 
 		case int32:
 			typetags = append(typetags, 'i')
-			if err := binary.Write(payload, binary.BigEndian, int32(t)); err != nil {
+			if err := binary.Write(payload, binary.BigEndian, t); err != nil {
 				return nil, err
 			}
 
 		case float32:
 			typetags = append(typetags, 'f')
-			if err := binary.Write(payload, binary.BigEndian, float32(t)); err != nil {
+			if err := binary.Write(payload, binary.BigEndian, t); err != nil {
 				return nil, err
 			}
 
@@ -198,13 +201,13 @@ func (msg *Message) MarshalBinary() ([]byte, error) {
 
 		case int64:
 			typetags = append(typetags, 'h')
-			if err := binary.Write(payload, binary.BigEndian, int64(t)); err != nil {
+			if err := binary.Write(payload, binary.BigEndian, t); err != nil {
 				return nil, err
 			}
 
 		case float64:
 			typetags = append(typetags, 'd')
-			if err := binary.Write(payload, binary.BigEndian, float64(t)); err != nil {
+			if err := binary.Write(payload, binary.BigEndian, t); err != nil {
 				return nil, err
 			}
 

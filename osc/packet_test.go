@@ -77,7 +77,7 @@ func TestMessage_String(t *testing.T) {
 		str  string
 	}{
 		{"nil", nil, ""},
-		{"addr_only", NewMessage("/foo/bar"), "/foo/bar "},
+		{"addr_only", NewMessage("/foo/bar"), "/foo/bar"},
 		{"one_addr", NewMessage("/foo/bar", "123"), "/foo/bar ,s 123"},
 		{"two_args", NewMessage("/foo/bar", "123", int32(456)), "/foo/bar ,si 123 456"},
 	} {
@@ -144,4 +144,17 @@ func TestOscMessageMatch(t *testing.T) {
 			t.Errorf("%s: msg.Match('%s') = '%t', want = '%t'", tt.desc, tt.addrPattern, got, tt.want)
 		}
 	}
+}
+
+var r string
+
+func BenchmarkMessageString(b *testing.B) {
+	p := &Message{Address: "/composition/selectedclip/transport/position", Arguments: []interface{}{float32(0.123456789)}}
+	b.ResetTimer()
+	b.ReportAllocs()
+	var s string
+	for n := 0; n < b.N; n++ {
+		s = p.String()
+	}
+	r = s
 }

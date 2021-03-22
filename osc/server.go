@@ -94,6 +94,7 @@ func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
 
 	buf.Reset()
 	n, err := buf.ReadFrom(&glue{c})
+	//_, err = buf.Write(data)
 	if err != nil {
 		return nil, err
 	}
@@ -105,10 +106,6 @@ func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
 // ParsePacket parses the given msg string and returns a Packet
 func ParsePacket(msg string) (Packet, error) {
 	var start int
-	//l.Lock()
-	//defer l.Unlock()
-	//buf.Reset()
-	//buf.WriteString(msg)
 	return readPacket(bytes.NewBufferString(msg), &start, len(msg))
 }
 
@@ -179,6 +176,8 @@ func readBundle(reader *bytes.Buffer, start *int, end int) (*Bundle, error) {
 	return bundle, nil
 }
 
+var msgs = &Message{}
+
 // readMessage from `reader`.
 func readMessage(reader *bytes.Buffer, start *int) (*Message, error) {
 	// First, read the OSC address
@@ -189,12 +188,14 @@ func readMessage(reader *bytes.Buffer, start *int) (*Message, error) {
 	*start += n
 
 	// Read all arguments
-	msg := &Message{Address: addr}
-	if err = readArguments(msg, reader, start); err != nil {
+	msgs.Address = addr
+	msgs.Arguments = msgs.Arguments[:0]
+	if err = readArguments(msgs, reader, start); err != nil {
 		return nil, err
 	}
 
-	return msg, nil
+	msg := *msgs
+	return &msg, nil
 }
 
 // readArguments from `reader` and add them to the OSC message `msg`.

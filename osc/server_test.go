@@ -193,12 +193,45 @@ func TestParsePacket(t *testing.T) {
 var result Packet
 var msg = []byte{47, 99, 111, 109, 112, 111, 115, 105, 116, 105, 111, 110, 47, 108, 97, 121, 101, 114, 115, 47, 49, 47, 99, 108, 105, 112, 115, 47, 49, 47, 116, 114, 97, 110, 115, 112, 111, 114, 116, 47, 112, 111, 115, 105, 116, 105, 111, 110, 0, 0, 0, 0, 44, 102, 0, 0, 62, 166, 157, 119, 0, 0, 0, 0}
 
-func BenchmarkParsePacket(b *testing.B) {
-	b.ResetTimer()
-	b.ReportAllocs()
+//func BenchmarkParsePacket(b *testing.B) {
+//	b.ResetTimer()
+//	b.ReportAllocs()
+//	var p Packet
+//	for n := 0; n < b.N; n++ {
+//		p, _ = ParsePacket(string(msg))
+//	}
+//	result = p
+//}
+
+type dummyConn struct {
+	net.PacketConn
+}
+
+func (d *dummyConn) ReadFrom(buf []byte) (n int, addr net.Addr, err error) {
+	n = copy(buf, msg)
+	return
+}
+
+func (d *dummyConn) WriteTo(buf []byte, addr net.Addr) (n int, err error) { return }
+
+func (d *dummyConn) Close() (err error) { return }
+
+func (d *dummyConn) LocalAddr() (addr net.Addr) { return }
+
+func (d *dummyConn) SetDeadline(t time.Time) (err error) { return }
+
+func (d *dummyConn) SetReadDeadline(t time.Time) (err error) { return }
+
+func (d *dummyConn) SetWriteDeadline(t time.Time) (err error) { return }
+
+func BenchmarkReceivePacket(b *testing.B) {
+	d := &dummyConn{}
+	s := &Server{}
 	var p Packet
+	b.ReportAllocs()
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		p, _ = ParsePacket(string(msg))
+		p, _ = s.ReceivePacket(d)
 	}
 	result = p
 }
