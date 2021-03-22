@@ -28,7 +28,7 @@ func TestServerMessageReceiving(t *testing.T) {
 
 		packet, err := server.ReceivePacket(c)
 		if err != nil {
-			t.Error("Server error")
+			t.Errorf("Server error: %v", err)
 			return
 		}
 		if packet == nil {
@@ -161,6 +161,8 @@ func TestParsePacket(t *testing.T) {
 			makePacket("/d/e/f", []string{"foo"}),
 			true},
 		{"empty", "", nil, false},
+		{"designed",
+			string(msg), temp, true},
 	} {
 		pkt, err := ParsePacket(tt.msg)
 		if err != nil && tt.ok {
@@ -190,18 +192,19 @@ func TestParsePacket(t *testing.T) {
 	}
 }
 
-var result Packet
-var msg = []byte{47, 99, 111, 109, 112, 111, 115, 105, 116, 105, 111, 110, 47, 108, 97, 121, 101, 114, 115, 47, 49, 47, 99, 108, 105, 112, 115, 47, 49, 47, 116, 114, 97, 110, 115, 112, 111, 114, 116, 47, 112, 111, 115, 105, 116, 105, 111, 110, 0, 0, 0, 0, 44, 102, 0, 0, 62, 166, 157, 119, 0, 0, 0, 0}
+var temp = &Message{Address: "/composition/layers/1/clips/1/transport/position", Arguments: []interface{}{0.123456789, "hello world"}}
+var msg, _ = temp.MarshalBinary()
 
-//func BenchmarkParsePacket(b *testing.B) {
-//	b.ResetTimer()
-//	b.ReportAllocs()
-//	var p Packet
-//	for n := 0; n < b.N; n++ {
-//		p, _ = ParsePacket(string(msg))
-//	}
-//	result = p
-//}
+func BenchmarkParsePacket(b *testing.B) {
+	m := string(msg)
+	b.ResetTimer()
+	b.ReportAllocs()
+	var p Packet
+	for n := 0; n < b.N; n++ {
+		p, _ = ParsePacket(m)
+	}
+	result = p
+}
 
 type dummyConn struct {
 	net.PacketConn

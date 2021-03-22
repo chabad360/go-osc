@@ -1,6 +1,9 @@
 package osc
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
 
 func TestMessage_Append(t *testing.T) {
 	oscAddress := "/address"
@@ -146,15 +149,35 @@ func TestOscMessageMatch(t *testing.T) {
 	}
 }
 
-var r string
+var result interface{}
 
 func BenchmarkMessageString(b *testing.B) {
-	p := &Message{Address: "/composition/selectedclip/transport/position", Arguments: []interface{}{float32(0.123456789)}}
+	var s string
 	b.ResetTimer()
 	b.ReportAllocs()
-	var s string
 	for n := 0; n < b.N; n++ {
-		s = p.String()
+		s = temp.String()
 	}
-	r = s
+	result = s
+}
+
+func BenchmarkMessageMarshalBinary(b *testing.B) {
+	var buf []byte
+	b.ResetTimer()
+	b.ReportAllocs()
+	for n := 0; n < b.N; n++ {
+		buf, _ = temp.MarshalBinary()
+	}
+	result = buf
+}
+
+func BenchmarkMessageLightMarshalBinary(b *testing.B) {
+	var buf = new(bytes.Buffer)
+	b.ResetTimer()
+	b.ReportAllocs()
+	for n := 0; n < b.N; n++ {
+		buf.Reset()
+		temp.LightMarshalBinary(buf)
+	}
+	result = buf.Bytes()
 }

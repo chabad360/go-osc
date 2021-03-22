@@ -62,9 +62,13 @@ func (t *Timetag) TimeTag() uint64 {
 func (t *Timetag) MarshalBinary() ([]byte, error) {
 	data := new(bytes.Buffer)
 	if err := binary.Write(data, binary.BigEndian, t.timeTag); err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 	return data.Bytes(), nil
+}
+
+func (t *Timetag) LightMarshalBinary(buf *bytes.Buffer) error {
+	return binary.Write(buf, binary.BigEndian, t.timeTag)
 }
 
 // SetTime sets the value of the OSC time tag.

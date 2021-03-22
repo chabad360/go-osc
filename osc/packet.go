@@ -79,7 +79,7 @@ func (msg *Message) Match(addr string) bool {
 // TypeTags returns the type tag string.
 func (msg *Message) TypeTags() (string, error) {
 	if msg == nil {
-		return "", fmt.Errorf("message is nil")
+		return "", fmt.Errorf("TypeTags: message is nil")
 	}
 
 	if len(msg.Arguments) == 0 {
@@ -95,7 +95,7 @@ func (msg *Message) TypeTags() (string, error) {
 		tags = append(tags, s...)
 	}
 
-	return string(tags), nil
+	return *(*string)(unsafe.Pointer(&tags)), nil
 }
 
 var strBuf []byte
@@ -111,7 +111,7 @@ func (msg *Message) String() string {
 	strBuf = strBuf[:0]
 	strBuf = append(strBuf, msg.Address...)
 	if len(tags) == 0 {
-		return *(*string)(unsafe.Pointer(&strBuf))
+		return string(strBuf)
 	}
 
 	strBuf = append(strBuf, ' ')
@@ -150,20 +150,21 @@ func (msg *Message) CountArguments() int {
 func (msg *Message) MarshalBinary() ([]byte, error) {
 	// We can start with the OSC address and add it to the buffer
 	data := new(bytes.Buffer)
-	if _, err := writePaddedString(msg.Address, data); err != nil {
+	if err := msg.LightMarshalBinary(data); err != nil {
 		return nil, err
 	}
+	return data.Bytes(), nil
+}
 
+func (msg *Message) LightMarshalBinary(data *bytes.Buffer) error {
 	// Type tag string starts with ","
 	typetags := []byte{','}
 
 	// Process the type tags and collect all arguments
-	payload := new(bytes.Buffer)
 	for _, arg := range msg.Arguments {
-		// FIXME: Use t instead of arg
 		switch t := arg.(type) {
 		default:
-			return nil, fmt.Errorf("OSC - unsupported type: %T", t)
+			return fmt.Errorf("LightMarshalBinary: unsupported type: %T", t)
 
 		case bool:
 			if t {
@@ -177,63 +178,60 @@ func (msg *Message) MarshalBinary() ([]byte, error) {
 
 		case int32:
 			typetags = append(typetags, 'i')
-			if err := binary.Write(payload, binary.BigEndian, t); err != nil {
-				return nil, err
+			if err := binary.Write(data, binary.BigEndian, t); err != nil {
+				return err
 			}
 
 		case float32:
 			typetags = append(typetags, 'f')
-			if err := binary.Write(payload, binary.BigEndian, t); err != nil {
-				return nil, err
+			if err := binary.Write(data, binary.BigEndian, t); err != nil {
+				return err
 			}
 
 		case string:
 			typetags = append(typetags, 's')
-			if _, err := writePaddedString(t, payload); err != nil {
-				return nil, err
-			}
-
+			writePaddedString(t, data)
 		case []byte:
 			typetags = append(typetags, 'b')
-			if _, err := writeBlob(t, payload); err != nil {
-				return nil, err
+			if _, err := writeBlob(t, data); err != nil {
+				return err
 			}
 
 		case int64:
 			typetags = append(typetags, 'h')
-			if err := binary.Write(payload, binary.BigEndian, t); err != nil {
-				return nil, err
+			if err := binary.Write(data, binary.BigEndian, t); err != nil {
+				return err
 			}
 
 		case float64:
 			typetags = append(typetags, 'd')
-			if err := binary.Write(payload, binary.BigEndian, t); err != nil {
-				return nil, err
+			if err := binary.Write(data, binary.BigEndian, t); err != nil {
+				return err
 			}
 
 		case Timetag:
 			typetags = append(typetags, 't')
 			b, err := t.MarshalBinary()
 			if err != nil {
-				return nil, err
+				return err
 			}
-			if _, err = payload.Write(b); err != nil {
-				return nil, err
-			}
+			data.Write(b)
 		}
 	}
 
+	b := initBuf[:data.Len()]
+	data.Read(b)
+
+	data.Reset()
+	writePaddedString(msg.Address, data)
+
 	// Write the type tag string to the data buffer
-	if _, err := writePaddedString(*(*string)(unsafe.Pointer(&typetags)), data); err != nil {
-		return nil, err
-	}
+	writePaddedString(*(*string)(unsafe.Pointer(&typetags)), data)
 
 	// Write the payload (OSC arguments) to the data buffer
-	if _, err := data.Write(payload.Bytes()); err != nil {
-		return nil, err
-	}
+	data.Write(b)
 
-	return data.Bytes(), nil
+	return nil
 }
 
 ////
@@ -272,56 +270,52 @@ func (b *Bundle) Append(pck Packet) error {
 // 6. n bundle element
 func (b *Bundle) MarshalBinary() ([]byte, error) {
 	// Add the '#bundle' string
-	data := new(bytes.Buffer)
-	if _, err := writePaddedString("#bundle", data); err != nil {
+	buf := new(bytes.Buffer)
+	if err := b.LightMarshalBinary(buf); err != nil {
 		return nil, err
 	}
+	return buf.Bytes(), nil
+}
+
+func (b *Bundle) LightMarshalBinary(data *bytes.Buffer) error {
+	writePaddedString("#bundle", data)
 
 	// Add the time tag
-	bd, err := b.Timetag.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	if _, err = data.Write(bd); err != nil {
-		return nil, err
+	if err := b.Timetag.LightMarshalBinary(data); err != nil {
+		return err
 	}
 
 	// Process all OSC Messages
 	for _, m := range b.Messages {
 		buf, err := m.MarshalBinary()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// Append the length of the OSC message
 		if err = binary.Write(data, binary.BigEndian, int32(len(buf))); err != nil {
-			return nil, err
+			return err
 		}
 
 		// Append the OSC message
-		if _, err = data.Write(buf); err != nil {
-			return nil, err
-		}
+		data.Write(buf)
 	}
 
 	// Process all OSC Bundles
 	for _, b := range b.Bundles {
 		buf, err := b.MarshalBinary()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// Write the size of the bundle
 		if err = binary.Write(data, binary.BigEndian, int32(len(buf))); err != nil {
-			return nil, err
+			return err
 		}
 
 		// Append the bundle
-		_, err = data.Write(buf)
-		if err != nil {
-			return nil, err
-		}
+		data.Write(buf)
 	}
 
-	return data.Bytes(), nil
+	return nil
 }

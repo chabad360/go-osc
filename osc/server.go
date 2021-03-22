@@ -3,7 +3,6 @@ package osc
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -12,9 +11,9 @@ import (
 )
 
 var (
-	data = make([]byte, 65535)
-	buf  = bytes.NewBuffer(data)
-	l    sync.Mutex
+	initBuf = make([]byte, 65535)
+	buf     = bytes.NewBuffer(initBuf)
+	l       sync.Mutex
 )
 
 // Server represents an OSC server. The server listens on Address and Port for
@@ -84,6 +83,8 @@ func (g glue) Read(buf []byte) (n int, err error) {
 	return
 }
 
+var g = &glue{}
+
 // readFromConnection retrieves OSC packets.
 func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
 	if s.ReadTimeout != 0 {
@@ -93,8 +94,8 @@ func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
 	}
 
 	buf.Reset()
-	n, err := buf.ReadFrom(&glue{c})
-	//_, err = buf.Write(data)
+	g.PacketConn = c
+	n, err := buf.ReadFrom(g)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +214,7 @@ func readArguments(msg *Message, reader *bytes.Buffer, start *int) error {
 
 	// If the typetag doesn't start with ',', it's not valid
 	if typetags[0] != ',' {
-		return errors.New("unsupported type tag string")
+		return fmt.Errorf("unsupported type tag string: %s", typetags)
 	}
 
 	// Remove ',' from the type tag
@@ -257,12 +258,12 @@ func readArguments(msg *Message, reader *bytes.Buffer, start *int) error {
 			msg.Arguments = append(msg.Arguments, d)
 
 		case 's': // string
-			// TODO: fix reading string value
 			var s string
-			if s, _, err = readPaddedString(reader); err != nil {
+			var n int
+			if s, n, err = readPaddedString(reader); err != nil {
 				return err
 			}
-			*start += len(s) + padBytesNeeded(len(s))
+			*start += n
 			msg.Arguments = append(msg.Arguments, s)
 
 		case 'b': // blob

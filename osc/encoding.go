@@ -29,10 +29,8 @@ func readBlob(reader *bytes.Buffer) ([]byte, int, error) {
 
 	// Remove the padding bytes
 	numPadBytes := padBytesNeeded(int(blobLen))
-	if numPadBytes > 0 {
-		n += numPadBytes
-		reader.Next(numPadBytes)
-	}
+	n += numPadBytes
+	reader.Next(numPadBytes)
 
 	return blob, n, nil
 }
@@ -47,21 +45,13 @@ func writeBlob(data []byte, buf *bytes.Buffer) (int, error) {
 	}
 
 	// Write the data
-	if _, err := buf.Write(data); err != nil {
-		return 0, nil
-	}
+	n, _ := buf.Write(data)
 
 	// Add padding bytes if necessary
-	numPadBytes := padBytesNeeded(len(data))
-	if numPadBytes > 0 {
-		n, err := buf.Write(padBytes[:numPadBytes])
-		if err != nil {
-			return 0, err
-		}
-		numPadBytes = n
-	}
+	numPadBytes := padBytesNeeded(n)
+	buf.Write(padBytes[:numPadBytes])
 
-	return 4 + len(data) + numPadBytes, nil
+	return 4 + n + numPadBytes, nil
 }
 
 // readPaddedString reads a padded string from the given reader. The padding
@@ -75,45 +65,33 @@ func readPaddedString(reader *bytes.Buffer) (string, int, error) {
 
 	n := len(str)
 
-	// Remove the string delimiter, in order to calculate the right amount
-	// of padding bytes
-	str = str[:n-1]
-
 	// Remove the padding bytes
-	padLen := padBytesNeeded(len(str)) - 1
-	if padLen > 0 {
-		n += padLen
-		reader.Next(padLen)
-	}
+	padLen := padBytesNeeded(n)
+	n += padLen
+	reader.Next(padLen)
 
-	return str, n, nil
+	return str[:len(str)-1], n, nil
 }
 
 // writePaddedString writes a string with padding bytes to the a buffer.
 // Returns, the number of written bytes and an error if any.
-func writePaddedString(str string, buf *bytes.Buffer) (int, error) {
+func writePaddedString(str string, buf *bytes.Buffer) int {
 	// Write the string to the buffer
-	n, err := buf.WriteString(str)
-	if err != nil {
-		return 0, err
-	}
+	n, _ := buf.WriteString(str)
+	// Write the null terminator to the buffer as well
+	buf.WriteByte(0)
+	n += 1
 
 	// Calculate the padding bytes needed and create a buffer for the padding bytes
-	numPadBytes := padBytesNeeded(len(str))
-	if numPadBytes > 0 {
-		// Add the padding bytes to the buffer
-		n, err := buf.Write(padBytes[:numPadBytes])
-		if err != nil {
-			return 0, err
-		}
-		numPadBytes = n
-	}
+	numPadBytes := padBytesNeeded(n)
+	// Add the padding bytes to the buffer
+	n1, _ := buf.Write(padBytes[:numPadBytes])
 
-	return n + numPadBytes, nil
+	return n + n1
 }
 
 // padBytesNeeded determines how many bytes are needed to fill up to the next 4
 // byte length.
 func padBytesNeeded(elementLen int) int {
-	return 4*(elementLen/4+1) - elementLen
+	return (4 - (elementLen % 4)) % 4
 }
