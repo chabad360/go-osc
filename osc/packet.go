@@ -134,7 +134,7 @@ func (msg *Message) String() string {
 		}
 	}
 
-	return *(*string)(unsafe.Pointer(&strBuf))
+	return string(strBuf)
 }
 
 // CountArguments returns the number of arguments.
@@ -224,7 +224,7 @@ func (msg *Message) MarshalBinary() ([]byte, error) {
 	}
 
 	// Write the type tag string to the data buffer
-	if _, err := writePaddedString(string(typetags), data); err != nil {
+	if _, err := writePaddedString(*(*string)(unsafe.Pointer(&typetags)), data); err != nil {
 		return nil, err
 	}
 
