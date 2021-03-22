@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"time"
+	"unsafe"
 )
 
 //var str strings.Builder
@@ -130,7 +131,7 @@ func (msg *Message) String() string {
 		}
 	}
 
-	return string(str)
+	return *(*string)(unsafe.Pointer(&str))
 }
 
 // CountArguments returns the number of arguments.
