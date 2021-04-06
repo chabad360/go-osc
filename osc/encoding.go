@@ -29,10 +29,9 @@ func readBlob(reader *bytes.Buffer) ([]byte, int, error) {
 
 	// Remove the padding bytes
 	numPadBytes := padBytesNeeded(int(blobLen))
-	n += numPadBytes
 	reader.Next(numPadBytes)
 
-	return blob, n, nil
+	return blob, n + numPadBytes, nil
 }
 
 // writeBlob writes the data byte array as an OSC blob into buff. If the length
@@ -54,6 +53,9 @@ func writeBlob(data []byte, buf *bytes.Buffer) (int, error) {
 	return 4 + n + numPadBytes, nil
 }
 
+var str []byte
+var err error
+
 // readPaddedString reads a padded string from the given reader. The padding
 // bytes are removed from the reader.
 func readPaddedString(reader *bytes.Buffer) (string, int, error) {
@@ -65,12 +67,28 @@ func readPaddedString(reader *bytes.Buffer) (string, int, error) {
 
 	n := len(str)
 
-	// Remove the padding bytes
-	padLen := padBytesNeeded(n)
-	n += padLen
-	reader.Next(padLen)
+	//str = str[:reader.Len()]
+	//_, err := reader.Read(str)
+	//if err != nil {
+	//	return "", 0, err
+	//}
+	//
+	//n := bytes.IndexByte(str, 0)
+	//if n < 0 {
+	//	return "", 0, io.EOF
+	//}
+	//n++
+	//reader.Reset()
+	//reader.Write(str[n:])
 
-	return str[:len(str)-1], n, nil
+	str = str[:n-1]
+
+	// Remove the padding bytes
+	reader.Next(padBytesNeeded(n))
+	n += padBytesNeeded(n)
+
+	return str, n, nil
+	//return *(*string)(unsafe.Pointer(&str)), n, nil
 }
 
 // writePaddedString writes a string with padding bytes to the a buffer.
@@ -85,9 +103,9 @@ func writePaddedString(str string, buf *bytes.Buffer) int {
 	// Calculate the padding bytes needed and create a buffer for the padding bytes
 	numPadBytes := padBytesNeeded(n)
 	// Add the padding bytes to the buffer
-	n1, _ := buf.Write(padBytes[:numPadBytes])
+	buf.Write(padBytes[:numPadBytes])
 
-	return n + n1
+	return n + numPadBytes
 }
 
 // padBytesNeeded determines how many bytes are needed to fill up to the next 4
