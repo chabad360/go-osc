@@ -12,7 +12,7 @@ import (
 
 var (
 	initBuf = make([]byte, 65535)
-	buf     = bytes.NewBuffer(initBuf)
+	buf     = new(bytes.Buffer)
 	l       sync.Mutex
 )
 

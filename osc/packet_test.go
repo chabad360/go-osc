@@ -181,3 +181,28 @@ func BenchmarkMessageLightMarshalBinary(b *testing.B) {
 	}
 	result = buf.Bytes()
 }
+
+func TestMessageLightMarshalBinary(t *testing.T) {
+	type fields struct {
+		Address   string
+		Arguments []interface{}
+	}
+	for _, tt := range []struct {
+		name    string
+		fields  fields
+		arg     *bytes.Buffer
+		wantErr bool
+	}{
+		{"too large", fields{"/osc/message", []interface{}{make([]byte, 70000)}}, new(bytes.Buffer), true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			msg := &Message{
+				Address:   tt.fields.Address,
+				Arguments: tt.fields.Arguments,
+			}
+			if err := msg.LightMarshalBinary(tt.arg); (err != nil) != tt.wantErr {
+				t.Errorf("LightMarshalBinary() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

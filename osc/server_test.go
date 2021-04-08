@@ -206,29 +206,8 @@ func BenchmarkParsePacket(b *testing.B) {
 	result = p
 }
 
-type dummyConn struct {
-	net.PacketConn
-}
-
-func (d *dummyConn) ReadFrom(buf []byte) (n int, addr net.Addr, err error) {
-	n = copy(buf, msg)
-	return
-}
-
-func (d *dummyConn) WriteTo(buf []byte, addr net.Addr) (n int, err error) { return }
-
-func (d *dummyConn) Close() (err error) { return }
-
-func (d *dummyConn) LocalAddr() (addr net.Addr) { return }
-
-func (d *dummyConn) SetDeadline(t time.Time) (err error) { return }
-
-func (d *dummyConn) SetReadDeadline(t time.Time) (err error) { return }
-
-func (d *dummyConn) SetWriteDeadline(t time.Time) (err error) { return }
-
 func BenchmarkReceivePacket(b *testing.B) {
-	d := &dummyConn{}
+	d := &dummyConn{m: msg}
 	s := &Server{}
 	var p Packet
 	b.ReportAllocs()

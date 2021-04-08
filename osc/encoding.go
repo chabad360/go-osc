@@ -3,6 +3,7 @@ package osc
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 )
 
 ////
@@ -21,6 +22,10 @@ func readBlob(reader *bytes.Buffer) ([]byte, int, error) {
 	}
 	n := 4 + int(blobLen)
 
+	if blobLen < 1 || blobLen > int32(reader.Len()) {
+		return nil, 0, fmt.Errorf("readBlob: invalid blob length %d", blobLen)
+	}
+
 	// Read the data
 	blob := make([]byte, blobLen)
 	if _, err := reader.Read(blob); err != nil {
@@ -37,6 +42,10 @@ func readBlob(reader *bytes.Buffer) ([]byte, int, error) {
 // writeBlob writes the data byte array as an OSC blob into buff. If the length
 // of data isn't 32-bit aligned, padding bytes will be added.
 func writeBlob(data []byte, buf *bytes.Buffer) (int, error) {
+	if len(data) > len(initBuf)-4 {
+		return 0, fmt.Errorf("writeBlob: blob length greater than 65,531 bytes")
+	}
+
 	// Add the size of the blob
 	dlen := int32(len(data))
 	if err := binary.Write(buf, binary.BigEndian, dlen); err != nil {
@@ -53,9 +62,6 @@ func writeBlob(data []byte, buf *bytes.Buffer) (int, error) {
 	return 4 + n + numPadBytes, nil
 }
 
-var str []byte
-var err error
-
 // readPaddedString reads a padded string from the given reader. The padding
 // bytes are removed from the reader.
 func readPaddedString(reader *bytes.Buffer) (string, int, error) {
@@ -67,20 +73,6 @@ func readPaddedString(reader *bytes.Buffer) (string, int, error) {
 
 	n := len(str)
 
-	//str = str[:reader.Len()]
-	//_, err := reader.Read(str)
-	//if err != nil {
-	//	return "", 0, err
-	//}
-	//
-	//n := bytes.IndexByte(str, 0)
-	//if n < 0 {
-	//	return "", 0, io.EOF
-	//}
-	//n++
-	//reader.Reset()
-	//reader.Write(str[n:])
-
 	str = str[:n-1]
 
 	// Remove the padding bytes
@@ -88,7 +80,6 @@ func readPaddedString(reader *bytes.Buffer) (string, int, error) {
 	n += padBytesNeeded(n)
 
 	return str, n, nil
-	//return *(*string)(unsafe.Pointer(&str)), n, nil
 }
 
 // writePaddedString writes a string with padding bytes to the a buffer.

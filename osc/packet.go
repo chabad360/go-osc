@@ -209,6 +209,7 @@ func (msg *Message) LightMarshalBinary(data *bytes.Buffer) error {
 				return err
 			}
 
+		case *Timetag:
 		case Timetag:
 			typetags = append(typetags, 't')
 			b, err := t.MarshalBinary()
@@ -217,6 +218,10 @@ func (msg *Message) LightMarshalBinary(data *bytes.Buffer) error {
 			}
 			data.Write(b)
 		}
+	}
+
+	if data.Len() >= len(initBuf) {
+		return fmt.Errorf("LightMarshalBinary: payload too large: %d", data.Len())
 	}
 
 	b := initBuf[:data.Len()]
@@ -230,6 +235,10 @@ func (msg *Message) LightMarshalBinary(data *bytes.Buffer) error {
 
 	// Write the payload (OSC arguments) to the data buffer
 	data.Write(b)
+
+	if data.Len() >= len(initBuf) {
+		return fmt.Errorf("LightMarshalBinary: packet too large: %d", data.Len())
+	}
 
 	return nil
 }

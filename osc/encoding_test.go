@@ -3,6 +3,7 @@ package osc
 import (
 	"bytes"
 	"io"
+	"reflect"
 	"testing"
 )
 
@@ -79,5 +80,33 @@ func TestPadBytesNeeded(t *testing.T) {
 	n = padBytesNeeded(10)
 	if n != 2 {
 		t.Errorf("Number of pad bytes should be 2 and is: %d", n)
+	}
+}
+
+func TestReadBlob(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		args    []byte
+		want    []byte
+		want1   int
+		wantErr bool
+	}{
+		{"negative value", []byte{255, 255, 255, 255}, nil, 0, true},
+		{"large value", []byte{0, 1, 17, 112}, nil, 0, true},
+		{"proper value", []byte{0, 0, 0, 1, 10, 0, 0, 0}, []byte{10}, 8, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1, err := readBlob(bytes.NewBuffer((tt.args)))
+			if (err != nil) != tt.wantErr {
+				t.Errorf("readBlob() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("readBlob() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("readBlob() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
 	}
 }
