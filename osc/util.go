@@ -27,7 +27,7 @@ func addressExists(addr string, handlers map[string]Handler) bool {
 
 // getRegEx compiles and returns a regular expression object for the given
 // address `pattern`.
-func getRegEx(pattern string) *regexp.Regexp {
+func getRegEx(pattern string) (*regexp.Regexp, error) {
 	for _, trs := range []struct {
 		old, new string
 	}{
@@ -43,7 +43,7 @@ func getRegEx(pattern string) *regexp.Regexp {
 		pattern = strings.Replace(pattern, trs.old, trs.new, -1)
 	}
 
-	return regexp.MustCompile(pattern)
+	return regexp.Compile(pattern)
 }
 
 // GetTypeTag returns the OSC type tag for the given argument.

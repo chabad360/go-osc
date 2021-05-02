@@ -71,22 +71,22 @@ func (s *Server) ReceivePacket(c net.PacketConn) (Packet, error) {
 	return s.readFromConnection(c)
 }
 
-type glue struct {
+type eofReader struct {
 	net.PacketConn
 }
 
-func (g glue) Read(buf []byte) (n int, err error) {
-	n, _, err = g.ReadFrom(buf)
+func (g eofReader) Read(buf []byte) (int, error) {
+	n, _, err := g.ReadFrom(buf)
 	if err == nil {
-		err = io.EOF
+		return n, io.EOF
 	}
-	return
+	return n, err
 }
-
-var g = &glue{}
 
 // readFromConnection retrieves OSC packets.
 func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
+	l.Lock()
+	defer l.Unlock()
 	if s.ReadTimeout != 0 {
 		if err := c.SetReadDeadline(time.Now().Add(s.ReadTimeout)); err != nil {
 			return nil, err
@@ -94,8 +94,7 @@ func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
 	}
 
 	buf.Reset()
-	g.PacketConn = c
-	n, err := buf.ReadFrom(g)
+	n, err := buf.ReadFrom(eofReader{c})
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +280,7 @@ func readArguments(msg *Message, reader *bytes.Buffer, start *int) error {
 				return nil
 			}
 			*start += 8
-			msg.Arguments = append(msg.Arguments, NewTimetagFromTimetag(tt))
+			msg.Arguments = append(msg.Arguments, *NewTimetagFromTimetag(tt))
 
 		case 'N': // nil
 			msg.Arguments = append(msg.Arguments, nil)

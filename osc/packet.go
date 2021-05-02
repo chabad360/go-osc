@@ -73,7 +73,11 @@ func (msg *Message) ClearData() {
 // Match returns true, if the OSC address pattern of the OSC Message matches the given
 // address. The match is case sensitive!
 func (msg *Message) Match(addr string) bool {
-	return getRegEx(msg.Address).MatchString(addr)
+	regexp, err := getRegEx(msg.Address)
+	if err != nil {
+		return false
+	}
+	return regexp.MatchString(addr)
 }
 
 // TypeTags returns the type tag string.
@@ -209,7 +213,6 @@ func (msg *Message) LightMarshalBinary(data *bytes.Buffer) error {
 				return err
 			}
 
-		case *Timetag:
 		case Timetag:
 			typetags = append(typetags, 't')
 			b, err := t.MarshalBinary()

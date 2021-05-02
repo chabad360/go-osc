@@ -35,6 +35,24 @@ func TestServerMessageReceiving(t *testing.T) {
 			t.Error("nil packet")
 			return
 		}
+		packet, err = server.ReceivePacket(c)
+		if err != nil {
+			t.Errorf("Server error: %v", err)
+			return
+		}
+		if packet == nil {
+			t.Error("nil packet")
+			return
+		}
+		packet, err = server.ReceivePacket(c)
+		if err != nil {
+			t.Errorf("Server error: %v", err)
+			return
+		}
+		if packet == nil {
+			t.Error("nil packet")
+			return
+		}
 
 		msg := packet.(*Message)
 		if msg.CountArguments() != 2 {
@@ -61,6 +79,8 @@ func TestServerMessageReceiving(t *testing.T) {
 			msg.Append(int32(1122))
 			msg.Append(int32(3344))
 			time.Sleep(500 * time.Millisecond)
+			client.Send(msg)
+			client.Send(msg)
 			client.Send(msg)
 		}
 
