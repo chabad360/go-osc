@@ -71,6 +71,6 @@ func GetTypeTag(arg interface{}) (string, error) {
 	case Timetag:
 		return "t", nil
 	default:
-		return "", fmt.Errorf("Unsupported type: %T", t)
+		return "", fmt.Errorf("unsupported type: %T", t)
 	}
 }

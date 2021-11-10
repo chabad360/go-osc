@@ -12,7 +12,7 @@ import (
 
 var (
 	initBuf = make([]byte, 65535)
-	buf     = new(bytes.Buffer)
+	buf     = bytes.NewBuffer(make([]byte, 65535))
 	l       sync.Mutex
 )
 
@@ -100,17 +100,17 @@ func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
 	}
 
 	var start int
-	return readPacket(buf, &start, int(n))
+	return ReadPacket(buf, &start, int(n))
 }
 
 // ParsePacket parses the given msg string and returns a Packet
 func ParsePacket(msg string) (Packet, error) {
 	var start int
-	return readPacket(bytes.NewBufferString(msg), &start, len(msg))
+	return ReadPacket(bytes.NewBufferString(msg), &start, len(msg))
 }
 
-// receivePacket receives an OSC packet from the given reader.
-func readPacket(reader *bytes.Buffer, start *int, end int) (Packet, error) {
+// ReadPacket parses an OSC packet from the given reader.
+func ReadPacket(reader *bytes.Buffer, start *int, end int) (Packet, error) {
 	b, err := reader.ReadByte()
 	if err != nil {
 		return nil, err
@@ -128,7 +128,7 @@ func readPacket(reader *bytes.Buffer, start *int, end int) (Packet, error) {
 		return readBundle(reader, start, end)
 	}
 
-	return nil, fmt.Errorf("readPacket: invalid packet")
+	return nil, fmt.Errorf("ReadPacket: invalid packet")
 }
 
 // readBundle reads a Bundle from reader.
@@ -164,7 +164,7 @@ func readBundle(reader *bytes.Buffer, start *int, end int) (*Bundle, error) {
 		*start += 4
 
 		var p Packet
-		p, err = readPacket(reader, start, end)
+		p, err = ReadPacket(reader, start, end)
 		if err != nil {
 			return nil, err
 		}
