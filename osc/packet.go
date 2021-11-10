@@ -90,16 +90,17 @@ func (msg *Message) TypeTags() (string, error) {
 		return "", nil
 	}
 
-	tags := ","
+	tags := make([]byte, 0, len(msg.Arguments)+1)
+	tags = append(tags, ',')
 	for _, m := range msg.Arguments {
 		s, err := GetTypeTag(m)
 		if err != nil {
 			return "", err
 		}
-		tags += s
+		tags = append(tags, s...)
 	}
 
-	return tags, nil
+	return *(*string)(unsafe.Pointer(&tags)), nil
 }
 
 var strBuf []byte
