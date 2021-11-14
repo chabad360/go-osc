@@ -12,8 +12,9 @@ import (
 
 var (
 	initBuf = make([]byte, 65535)
-	buf     = bytes.NewBuffer(make([]byte, 65535))
+	//buf     = bytes.NewBuffer(make([]byte, 65535))
 	l       sync.Mutex
+	bufPool = sync.Pool{New: func() interface{} { return &bytes.Buffer{} }}
 )
 
 // Server represents an OSC server. The server listens on Address and Port for
@@ -93,20 +94,29 @@ func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
 		}
 	}
 
-	buf.Reset()
-	n, err := buf.ReadFrom(eofReader{c})
+	b := bufPool.Get().(*bytes.Buffer)
+	defer bufPool.Put(b)
+	b.Reset()
+	n, err := b.ReadFrom(&eofReader{c})
 	if err != nil {
 		return nil, err
 	}
 
 	var start int
-	return ReadPacket(buf, &start, int(n))
+	return ReadPacket(b, &start, int(n))
 }
 
 // ParsePacket parses the given msg string and returns a Packet
 func ParsePacket(msg string) (Packet, error) {
+	b := bufPool.Get().(*bytes.Buffer)
+	defer bufPool.Put(b)
+	b.Reset()
+
+	b.WriteString(msg)
+
 	var start int
-	return ReadPacket(bytes.NewBufferString(msg), &start, len(msg))
+	p, err := ReadPacket(b, &start, b.Len())
+	return p, err
 }
 
 // ReadPacket parses an OSC packet from the given reader.
@@ -152,7 +162,7 @@ func readBundle(reader *bytes.Buffer, start *int, end int) (*Bundle, error) {
 	*start += 8
 
 	// Create a new bundle
-	bundle := &Bundle{Timetag: *NewTimetagFromTimetag(timeTag)}
+	bundle := Bundle{Timetag: *NewTimetagFromTimetag(timeTag)}
 
 	// Read until the end of the buffer
 	for *start < end {
@@ -173,7 +183,7 @@ func readBundle(reader *bytes.Buffer, start *int, end int) (*Bundle, error) {
 		}
 	}
 
-	return bundle, nil
+	return &bundle, nil
 }
 
 var msgs = &Message{}
@@ -188,110 +198,113 @@ func readMessage(reader *bytes.Buffer, start *int) (*Message, error) {
 	*start += n
 
 	// Read all arguments
-	msgs.Address = addr
-	msgs.Arguments = msgs.Arguments[:0]
-	if err = readArguments(msgs, reader, start); err != nil {
+	msg := Message{}
+	msg.Address = addr
+	//msgs.Arguments = msgs.Arguments[:0]
+	if msg.Arguments, err = readArguments(reader, start); err != nil {
 		return nil, err
 	}
 
-	msg := *msgs
+	//msg := *msgs
 	return &msg, nil
 }
 
 // readArguments from `reader` and add them to the OSC message `msg`.
-func readArguments(msg *Message, reader *bytes.Buffer, start *int) error {
+func readArguments(reader *bytes.Buffer, start *int) ([]interface{}, error) {
 	// Read the type tag string
 	typetags, n, err := readPaddedString(reader)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	*start += n
 
 	if len(typetags) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	// If the typetag doesn't start with ',', it's not valid
 	if typetags[0] != ',' {
-		return fmt.Errorf("unsupported type tag string: %s", typetags)
+		return nil, fmt.Errorf("unsupported type tag string: %s", typetags)
 	}
 
 	// Remove ',' from the type tag
-	typetags = typetags[1:]
+	tt := typetags[1:]
 
-	for _, c := range typetags {
+	args := make([]interface{}, 0, len(tt))
+
+	for _, c := range tt {
 		switch c {
 		default:
-			return fmt.Errorf("unsupported type tag: %c", c)
+			return nil, fmt.Errorf("unsupported type tag: %c", c)
 
 		case 'i': // int32
 			var i int32
 			if err = binary.Read(reader, binary.BigEndian, &i); err != nil {
-				return err
+				return nil, err
 			}
 			*start += 4
-			msg.Arguments = append(msg.Arguments, i)
+			args = append(args, i)
 
 		case 'h': // int64
 			var i int64
 			if err = binary.Read(reader, binary.BigEndian, &i); err != nil {
-				return err
+				return nil, err
 			}
 			*start += 8
-			msg.Arguments = append(msg.Arguments, i)
+			args = append(args, i)
 
 		case 'f': // float32
 			var f float32
 			if err = binary.Read(reader, binary.BigEndian, &f); err != nil {
-				return err
+				return nil, err
 			}
 			*start += 4
-			msg.Arguments = append(msg.Arguments, f)
+			args = append(args, f)
 
 		case 'd': // float64/double
 			var d float64
 			if err = binary.Read(reader, binary.BigEndian, &d); err != nil {
-				return err
+				return nil, err
 			}
 			*start += 8
-			msg.Arguments = append(msg.Arguments, d)
+			args = append(args, d)
 
 		case 's': // string
 			var s string
 			var n int
 			if s, n, err = readPaddedString(reader); err != nil {
-				return err
+				return nil, err
 			}
 			*start += n
-			msg.Arguments = append(msg.Arguments, s)
+			args = append(args, s)
 
 		case 'b': // blob
 			var buf []byte
 			var n int
 			if buf, n, err = readBlob(reader); err != nil {
-				return err
+				return nil, err
 			}
 			*start += n
-			msg.Arguments = append(msg.Arguments, buf)
+			args = append(args, buf)
 
 		case 't': // OSC time tag
 			var tt uint64
 			if err = binary.Read(reader, binary.BigEndian, &tt); err != nil {
-				return nil
+				return nil, err
 			}
 			*start += 8
-			msg.Arguments = append(msg.Arguments, *NewTimetagFromTimetag(tt))
+			args = append(args, *NewTimetagFromTimetag(tt))
 
 		case 'N': // nil
-			msg.Arguments = append(msg.Arguments, nil)
+			args = append(args, nil)
 
 		case 'T': // true
-			msg.Arguments = append(msg.Arguments, true)
+			args = append(args, true)
 
 		case 'F': // false
-			msg.Arguments = append(msg.Arguments, false)
+			args = append(args, false)
 		}
 	}
 
-	return nil
+	return args, nil
 }

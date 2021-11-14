@@ -1,6 +1,7 @@
 package osc
 
 import (
+	"fmt"
 	"net"
 	"reflect"
 	"sync"
@@ -200,13 +201,16 @@ func TestParsePacket(t *testing.T) {
 			t.Errorf("%s: failure converting pkt to byte array; %s", tt.desc, err)
 			continue
 		}
+		fmt.Println(string(pktBytes))
 		ttpktBytes, err := tt.pkt.MarshalBinary()
 		if err != nil {
 			t.Errorf("%s: failure converting tt.pkt to byte array; %s", tt.desc, err)
 			continue
 		}
-		if got, want := pktBytes, ttpktBytes; !reflect.DeepEqual(got, want) {
-			t.Errorf("%s: ParsePacket() as bytes = '%s', want = '%s'", tt.desc, got, want)
+
+		fmt.Println(string(pktBytes))
+		if !reflect.DeepEqual(pktBytes, ttpktBytes) {
+			t.Errorf("%s: ParsePacket() as bytes = '%s', want = '%s'", tt.desc, pktBytes, ttpktBytes)
 			continue
 		}
 	}

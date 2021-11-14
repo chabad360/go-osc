@@ -60,7 +60,10 @@ func (t *Timetag) TimeTag() uint64 {
 
 // MarshalBinary converts the OSC time tag to a byte array.
 func (t *Timetag) MarshalBinary() ([]byte, error) {
-	data := new(bytes.Buffer)
+	data := bufPool.Get().(*bytes.Buffer)
+	defer bufPool.Put(data)
+	data.Reset()
+
 	if err := binary.Write(data, binary.BigEndian, t.timeTag); err != nil {
 		return nil, err
 	}

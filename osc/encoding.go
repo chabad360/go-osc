@@ -4,25 +4,28 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
+	"unsafe"
 )
 
 ////
 // De/Encoding functions
 ////
 
-var padBytes = make([]byte, 4)
+var padBytes = []byte{0, 0, 0, 0}
 
 // readBlob reads an OSC blob from the blob byte array. Padding bytes are
 // removed from the reader and not returned.
 func readBlob(reader *bytes.Buffer) ([]byte, int, error) {
 	// First, get the length
-	var blobLen int32
-	if err := binary.Read(reader, binary.BigEndian, &blobLen); err != nil {
+	var blobLen int64
+	var err error
+	if blobLen, err = binary.ReadVarint(reader); err != nil {
 		return nil, 0, err
 	}
 	n := 4 + int(blobLen)
 
-	if blobLen < 1 || blobLen > int32(reader.Len()) {
+	if blobLen < 1 || blobLen > int64(reader.Len()) {
 		return nil, 0, fmt.Errorf("readBlob: invalid blob length %d", blobLen)
 	}
 
@@ -36,7 +39,9 @@ func readBlob(reader *bytes.Buffer) ([]byte, int, error) {
 	numPadBytes := padBytesNeeded(int(blobLen))
 	reader.Next(numPadBytes)
 
-	return blob, n + numPadBytes, nil
+	b := blob
+
+	return b, n + numPadBytes, nil
 }
 
 // writeBlob writes the data byte array as an OSC blob into buff. If the length
@@ -47,8 +52,8 @@ func writeBlob(data []byte, buf *bytes.Buffer) (int, error) {
 	}
 
 	// Add the size of the blob
-	dlen := int32(len(data))
-	if err := binary.Write(buf, binary.BigEndian, dlen); err != nil {
+	//dlen := int32(len(data))
+	if err := binary.Write(buf, binary.BigEndian, int32(len(data))); err != nil {
 		return 0, err
 	}
 
@@ -65,24 +70,32 @@ func writeBlob(data []byte, buf *bytes.Buffer) (int, error) {
 // readPaddedString reads a padded string from the given reader. The padding
 // bytes are removed from the reader.
 func readPaddedString(reader *bytes.Buffer) (string, int, error) {
-	//Read the string from the reader
-	str, err := reader.ReadString(0)
-	if err != nil {
-		return "", 0, err
+	p := bytes.IndexByte(reader.Bytes(), 0)
+	if p < 0 {
+		return "", 0, io.EOF
 	}
+
+	//Read the string from the reader
+	//str, err := reader.ReadString(0)
+	//if err != nil {
+	//	return "", 0, err
+	//}
+
+	str := make([]byte, p)
+	reader.Read(str)
 
 	n := len(str)
 
-	str = str[:n-1]
+	//str = str[:n-1]
 
 	// Remove the padding bytes
-	reader.Next(padBytesNeeded(n))
-	n += padBytesNeeded(n)
+	reader.Next(padBytesNeeded(n+1) + 1)
+	n += padBytesNeeded(n+1) + 1
 
-	return str, n, nil
+	return *(*string)(unsafe.Pointer(&str)), n, nil
 }
 
-// writePaddedString writes a string with padding bytes to the a buffer.
+// writePaddedString writes a string with padding bytes to the buffer.
 // Returns, the number of written bytes and an error if any.
 func writePaddedString(str string, buf *bytes.Buffer) int {
 	// Write the string to the buffer
