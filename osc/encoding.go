@@ -18,21 +18,20 @@ var padBytes = []byte{0, 0, 0, 0}
 // removed from the reader and not returned.
 func readBlob(reader *bytes.Buffer) ([]byte, int, error) {
 	// First, get the length
-	var blobLen int64
-	var err error
-	if blobLen, err = binary.ReadVarint(reader); err != nil {
-		return nil, 0, err
+	var blobLen int32
+	if err := binary.Read(reader, binary.BigEndian, &blobLen); err != nil {
+		return nil, 0, fmt.Errorf("readBlob: %w", err)
 	}
 	n := 4 + int(blobLen)
 
-	if blobLen < 1 || blobLen > int64(reader.Len()) {
+	if blobLen < 1 || blobLen > int32(reader.Len()) {
 		return nil, 0, fmt.Errorf("readBlob: invalid blob length %d", blobLen)
 	}
 
 	// Read the data
 	blob := make([]byte, blobLen)
 	if _, err := reader.Read(blob); err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("readBlob: %w", err)
 	}
 
 	// Remove the padding bytes
@@ -53,9 +52,7 @@ func writeBlob(data []byte, buf *bytes.Buffer) (int, error) {
 
 	// Add the size of the blob
 	//dlen := int32(len(data))
-	if err := binary.Write(buf, binary.BigEndian, int32(len(data))); err != nil {
-		return 0, err
-	}
+	binary.Write(buf, binary.BigEndian, int32(len(data)))
 
 	// Write the data
 	n, _ := buf.Write(data)
@@ -72,26 +69,19 @@ func writeBlob(data []byte, buf *bytes.Buffer) (int, error) {
 func readPaddedString(reader *bytes.Buffer) (string, int, error) {
 	p := bytes.IndexByte(reader.Bytes(), 0)
 	if p < 0 {
-		return "", 0, io.EOF
+		return "", 0, fmt.Errorf("readPaddedString: %w", io.EOF)
 	}
-
-	//Read the string from the reader
-	//str, err := reader.ReadString(0)
-	//if err != nil {
-	//	return "", 0, err
-	//}
 
 	str := make([]byte, p)
 	reader.Read(str)
 
 	n := len(str)
 
-	//str = str[:n-1]
-
 	// Remove the padding bytes
 	reader.Next(padBytesNeeded(n+1) + 1)
 	n += padBytesNeeded(n+1) + 1
 
+	//return string(str), n, nil
 	return *(*string)(unsafe.Pointer(&str)), n, nil
 }
 

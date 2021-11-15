@@ -59,15 +59,15 @@ func (t *Timetag) TimeTag() uint64 {
 }
 
 // MarshalBinary converts the OSC time tag to a byte array.
-func (t *Timetag) MarshalBinary() ([]byte, error) {
+func (t *Timetag) MarshalBinary() (b []byte, err error) {
 	data := bufPool.Get().(*bytes.Buffer)
 	defer bufPool.Put(data)
 	data.Reset()
 
-	if err := binary.Write(data, binary.BigEndian, t.timeTag); err != nil {
+	if err = binary.Write(data, binary.BigEndian, t.timeTag); err != nil {
 		return nil, err
 	}
-	return data.Bytes(), nil
+	return append(b, data.Bytes()...), nil
 }
 
 func (t *Timetag) LightMarshalBinary(buf *bytes.Buffer) error {
@@ -108,9 +108,9 @@ func (t *Timetag) ExpiresIn() time.Duration {
 //
 // The time tag value consisting of 63 zero bits followed by a one in the least
 // significant bit is a special case meaning "immediately."
-func timeToTimetag(time time.Time) (timetag uint64) {
-	timetag = uint64((secondsFrom1900To1970 + time.Unix()) << 32)
-	return timetag + uint64(uint32(time.Nanosecond()))
+func timeToTimetag(t time.Time) (timetag uint64) {
+	timetag = uint64((secondsFrom1900To1970 + t.Unix()) << 32)
+	return timetag + uint64(t.Nanosecond())
 }
 
 // timetagToTime converts the given timetag to a time object.

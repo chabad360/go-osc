@@ -2,6 +2,7 @@ package osc
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"reflect"
 	"testing"
@@ -22,7 +23,7 @@ func TestReadPaddedString(t *testing.T) {
 
 	} {
 		got, got1, err := readPaddedString(bytes.NewBuffer(tt.buf))
-		if err != tt.err {
+		if !errors.Is(err, tt.err) {
 			t.Errorf("%s: Error reading padded string: %s", tt.want1, err)
 		}
 		if got1 != tt.want {

@@ -10,11 +10,6 @@ import (
 // Utility and helper functions
 ////
 
-// PrintMessage pretty prints an OSC message to the standard output.
-func PrintMessage(msg *Message) {
-	fmt.Println(msg)
-}
-
 // addressExists returns true if the OSC address `addr` is found in `handlers`.
 func addressExists(addr string, handlers map[string]Handler) bool {
 	for h := range handlers {
