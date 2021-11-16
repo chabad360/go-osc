@@ -1,7 +1,6 @@
 package osc
 
 import (
-	"bytes"
 	"encoding/binary"
 	"time"
 )
@@ -17,78 +16,56 @@ const (
 // specify the number of seconds since midnight on January 1, 1900, and the
 // last 32 bits specify fractional parts of a second to a precision of about
 // 200 picoseconds. This is the representation used by Internet NTP timestamps.
-type Timetag struct {
-	timeTag uint64 // The actual time tag
-	time    time.Time
-}
+type Timetag uint64
 
-// NewTimetag returns a new OSC time tag object.
-func NewTimetag(timeStamp time.Time) *Timetag {
-	return &Timetag{
-		time:    timeStamp,
-		timeTag: timeToTimetag(timeStamp)}
-}
-
-// NewTimetagFromTimetag creates a new Timetag from the given `timetag`.
-func NewTimetagFromTimetag(timetag uint64) *Timetag {
-	return &Timetag{
-		time:    timetagToTime(timetag),
-		timeTag: timetag}
+// NewTimetagFromTime returns a new OSC time tag object from a time.Time.
+func NewTimetagFromTime(timeStamp time.Time) Timetag {
+	return Timetag(timeToTimetag(timeStamp))
 }
 
 // Time returns the time.
-func (t *Timetag) Time() time.Time {
-	return t.time
+func (t Timetag) Time() time.Time {
+	return timetagToTime(t)
 }
 
 // FractionalSecond returns the last 32 bits of the OSC time tag. Specifies the
 // fractional part of a second.
-func (t *Timetag) FractionalSecond() uint32 {
-	return uint32(t.timeTag << 32)
+func (t Timetag) FractionalSecond() uint32 {
+	return uint32(t << 32)
 }
 
 // SecondsSinceEpoch returns the first 32 bits (the number of seconds since the
 // midnight 1900) from the OSC time tag.
-func (t *Timetag) SecondsSinceEpoch() uint32 {
-	return uint32(t.timeTag >> 32)
+func (t Timetag) SecondsSinceEpoch() uint32 {
+	return uint32(t >> 32)
 }
 
 // TimeTag returns the time tag value
-func (t *Timetag) TimeTag() uint64 {
-	return t.timeTag
+func (t Timetag) TimeTag() uint64 {
+	return uint64(t)
 }
 
 // MarshalBinary converts the OSC time tag to a byte array.
-func (t *Timetag) MarshalBinary() (b []byte, err error) {
-	data := bufPool.Get().(*bytes.Buffer)
-	defer bufPool.Put(data)
-	data.Reset()
-
-	if err = binary.Write(data, binary.BigEndian, t.timeTag); err != nil {
-		return nil, err
-	}
-	return append(b, data.Bytes()...), nil
-}
-
-func (t *Timetag) LightMarshalBinary(buf *bytes.Buffer) error {
-	return binary.Write(buf, binary.BigEndian, t.timeTag)
+func (t Timetag) MarshalBinary() (b []byte, err error) {
+	b = make([]byte, 8)
+	binary.BigEndian.PutUint64(b, uint64(t))
+	return
 }
 
 // SetTime sets the value of the OSC time tag.
 func (t *Timetag) SetTime(time time.Time) {
-	t.time = time
-	t.timeTag = timeToTimetag(time)
+	*t = Timetag(timeToTimetag(time))
 }
 
 // ExpiresIn calculates the number of seconds until the current time is the
 // same as the value of the time tag. It returns zero if the value of the
 // time tag is in the past.
-func (t *Timetag) ExpiresIn() time.Duration {
-	if t.timeTag <= 1 {
+func (t Timetag) ExpiresIn() time.Duration {
+	if t <= 1 {
 		return 0
 	}
 
-	tt := timetagToTime(t.timeTag)
+	tt := timetagToTime(t)
 	seconds := tt.Sub(time.Now())
 
 	if seconds <= 0 {
@@ -114,6 +91,6 @@ func timeToTimetag(t time.Time) (timetag uint64) {
 }
 
 // timetagToTime converts the given timetag to a time object.
-func timetagToTime(timetag uint64) (t time.Time) {
+func timetagToTime(timetag Timetag) (t time.Time) {
 	return time.Unix(int64((timetag>>32)-secondsFrom1900To1970), int64(timetag&0xffffffff))
 }

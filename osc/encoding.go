@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"io"
-	"unsafe"
 )
 
 ////
@@ -19,9 +17,9 @@ var padBytes = []byte{0, 0, 0, 0}
 func readBlob(reader *bytes.Buffer) ([]byte, int, error) {
 	// First, get the length
 	var blobLen = int(binary.BigEndian.Uint32(reader.Next(4)))
-	n := 4 + int(blobLen)
+	n := 4 + blobLen
 
-	if blobLen < 1 || blobLen > int(reader.Len()) {
+	if blobLen < 1 || blobLen > reader.Len() {
 		return nil, 0, fmt.Errorf("readBlob: invalid blob length %d", blobLen)
 	}
 
@@ -32,7 +30,7 @@ func readBlob(reader *bytes.Buffer) ([]byte, int, error) {
 	}
 
 	// Remove the padding bytes
-	numPadBytes := padBytesNeeded(int(blobLen))
+	numPadBytes := padBytesNeeded(blobLen)
 	reader.Next(numPadBytes)
 
 	b := blob
@@ -89,31 +87,6 @@ func readPaddedString(reader *bytes.Buffer) (string, int, error) {
 
 	return str, n, nil
 	//return *(*string)(unsafe.Pointer(&str)), n, nil
-}
-
-// readPaddedString2 reads a padded string from the given reader. The padding
-// bytes are removed from the reader.
-func readPaddedString2(reader *bytes.Buffer, s *string) (int, error) {
-	p := bytes.IndexByte(reader.Bytes(), 0)
-	if p < 0 {
-		return 0, fmt.Errorf("readPaddedString2: %w", io.EOF)
-	}
-	if p == 0 {
-		return 0, fmt.Errorf("readPaddedString2: empty string")
-	}
-
-	str := make([]byte, p+1)
-	reader.Read(str)
-
-	n := len(str)
-	str = str[:n-1]
-
-	// Remove the padding bytes
-	n += len(reader.Next(padBytesNeeded(n)))
-
-	*s = *(*string)(unsafe.Pointer(&str))
-
-	return n, nil
 }
 
 // writePaddedString writes a string with padding bytes to the buffer.

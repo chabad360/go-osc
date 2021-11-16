@@ -54,8 +54,8 @@ func TestServerMessageReceiving(t *testing.T) {
 		}
 
 		msg := packet.(*Message)
-		if msg.CountArguments() != 2 {
-			t.Errorf("Argument length should be 2 and is: %d\n", msg.CountArguments())
+		if len(msg.Arguments) != 2 {
+			t.Errorf("Argument length should be 2 and is: %d\n", len(msg.Arguments))
 		}
 		if msg.Arguments[0].(int32) != 1122 {
 			t.Error("Argument should be 1122 and is: " + string(msg.Arguments[0].(int32)))

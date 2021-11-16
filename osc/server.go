@@ -90,7 +90,7 @@ func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
 	b := bufPool.Get().(*bytes.Buffer)
 	defer bufPool.Put(b)
 	b.Reset()
-	_, err := b.ReadFrom(&eofReader{c})
+	_, err := b.ReadFrom(eofReader{c})
 	if err != nil {
 		return nil, err
 	}

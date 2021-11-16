@@ -45,9 +45,9 @@ func (b *Bundle) LightMarshalBinary(data *bytes.Buffer) error {
 	writePaddedString("#bundle", data)
 
 	// Add the time tag
-	if err := b.Timetag.LightMarshalBinary(data); err != nil {
-		return err
-	}
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(b.Timetag))
+	data.Write(buf)
 
 	// Process all OSC Messages
 	for _, m := range b.Messages {
@@ -57,9 +57,9 @@ func (b *Bundle) LightMarshalBinary(data *bytes.Buffer) error {
 		}
 
 		// Append the length of the OSC message
-		if err = binary.Write(data, binary.BigEndian, int32(len(buf))); err != nil {
-			return err
-		}
+		bb := make([]byte, 4)
+		binary.BigEndian.PutUint32(bb, uint32(len(buf)))
+		data.Write(bb)
 
 		// Append the OSC message
 		data.Write(buf)
@@ -73,9 +73,9 @@ func (b *Bundle) LightMarshalBinary(data *bytes.Buffer) error {
 		}
 
 		// Write the size of the bundle
-		if err = binary.Write(data, binary.BigEndian, int32(len(buf))); err != nil {
-			return err
-		}
+		bb := make([]byte, 4)
+		binary.BigEndian.PutUint32(bb, uint32(len(buf)))
+		data.Write(bb)
 
 		// Append the bundle
 		data.Write(buf)
@@ -96,7 +96,7 @@ func NewBundleFromData(data []byte) (b *Bundle, err error) {
 // NewBundle returns an OSC Bundle. Use this function to create a new OSC
 // Bundle.
 func NewBundle(time time.Time) *Bundle {
-	return &Bundle{Timetag: *NewTimetag(time)}
+	return &Bundle{Timetag: NewTimetagFromTime(time)}
 }
 
 // Append appends an OSC bundle or OSC message to the bundle.
@@ -143,7 +143,7 @@ func (b *Bundle) UnmarshalBinary(data []byte) error {
 
 	// Read the timetag
 	// Create a new bundle
-	b.Timetag = *NewTimetagFromTimetag(binary.BigEndian.Uint64(reader.Next(8)))
+	b.Timetag = Timetag(binary.BigEndian.Uint64(reader.Next(8)))
 
 	// Read until the end of the buffer
 	for reader.Len() > 0 {

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"reflect"
 	"unsafe"
 )
 
@@ -37,13 +36,6 @@ func (m *Message) Append(args ...interface{}) error {
 	}
 	m.Arguments = append(m.Arguments, args...)
 	return nil
-}
-
-// Equals returns true if the given OSC Message `m` is equal to the current OSC
-// Message. It checks if the OSC address and the arguments are equal. Returns
-// true if the current object and `m` are equal.
-func (m *Message) Equals(msg *Message) bool {
-	return reflect.DeepEqual(m, msg)
 }
 
 // Match returns true, if the OSC address pattern of the OSC Message matches the given
@@ -115,11 +107,6 @@ func (m *Message) String() string {
 	return strBuf.String()
 }
 
-// CountArguments returns the number of arguments.
-func (m *Message) CountArguments() int {
-	return len(m.Arguments)
-}
-
 // MarshalBinary serializes the OSC message to a byte buffer. The byte buffer
 // has the following format:
 // 1. OSC Address Pattern
@@ -150,11 +137,22 @@ func (m *Message) LightMarshalBinary(data *bytes.Buffer) error {
 
 		case bool, nil:
 			continue
-		case float32, float64, int32, int64:
-			if err := binary.Write(b, binary.BigEndian, t); err != nil {
-				return err
-			}
-
+		case int32:
+			buf := make([]byte, 4)
+			binary.BigEndian.PutUint32(buf, uint32(t))
+			b.Write(buf)
+		case float32:
+			buf := make([]byte, 4)
+			binary.BigEndian.PutUint32(buf, *(*uint32)(unsafe.Pointer(&t)))
+			b.Write(buf)
+		case int64:
+			buf := make([]byte, 8)
+			binary.BigEndian.PutUint64(buf, uint64(t))
+			b.Write(buf)
+		case float64:
+			buf := make([]byte, 8)
+			binary.BigEndian.PutUint64(buf, *(*uint64)(unsafe.Pointer(&t)))
+			b.Write(buf)
 		case string:
 			writePaddedString(t, b)
 		case []byte:
@@ -162,11 +160,9 @@ func (m *Message) LightMarshalBinary(data *bytes.Buffer) error {
 				return err
 			}
 		case Timetag:
-			tt, err := t.MarshalBinary()
-			if err != nil {
-				return err
-			}
-			b.Write(tt)
+			buf := make([]byte, 8)
+			binary.BigEndian.PutUint64(buf, uint64(t))
+			b.Write(buf)
 		}
 	}
 
@@ -295,7 +291,7 @@ func (m *Message) readArguments(reader *bytes.Buffer) error {
 			m.Arguments = append(m.Arguments, buf)
 
 		case 't': // OSC time tag
-			m.Arguments = append(m.Arguments, *NewTimetagFromTimetag(binary.BigEndian.Uint64(reader.Next(8))))
+			m.Arguments = append(m.Arguments, Timetag(binary.BigEndian.Uint64(reader.Next(8))))
 
 		case 'N': // nil
 			m.Arguments = append(m.Arguments, nil)

@@ -2,6 +2,7 @@ package osc
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
 )
 
@@ -16,8 +17,8 @@ func TestMessage_Append(t *testing.T) {
 	message.Append(int32(123456789))
 	message.Append(true)
 
-	if message.CountArguments() != 3 {
-		t.Errorf("Number of arguments should be %d and is %d", 3, message.CountArguments())
+	if len(message.Arguments) != 3 {
+		t.Errorf("Number of arguments should be %d and is %d", 3, len(message.Arguments))
 	}
 }
 
@@ -29,7 +30,7 @@ func TestMessage_Equals(t *testing.T) {
 	msg1.Append("test string")
 	msg2.Append("test string")
 
-	if !msg1.Equals(msg2) {
+	if !reflect.DeepEqual(msg1, msg2) {
 		t.Error("Messages should be equal")
 	}
 }
