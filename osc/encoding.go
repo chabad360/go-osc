@@ -18,13 +18,10 @@ var padBytes = []byte{0, 0, 0, 0}
 // removed from the reader and not returned.
 func readBlob(reader *bytes.Buffer) ([]byte, int, error) {
 	// First, get the length
-	var blobLen int32
-	if err := binary.Read(reader, binary.BigEndian, &blobLen); err != nil {
-		return nil, 0, fmt.Errorf("readBlob: %w", err)
-	}
+	var blobLen = int(binary.BigEndian.Uint32(reader.Next(4)))
 	n := 4 + int(blobLen)
 
-	if blobLen < 1 || blobLen > int32(reader.Len()) {
+	if blobLen < 1 || blobLen > int(reader.Len()) {
 		return nil, 0, fmt.Errorf("readBlob: invalid blob length %d", blobLen)
 	}
 
@@ -67,22 +64,56 @@ func writeBlob(data []byte, buf *bytes.Buffer) (int, error) {
 // readPaddedString reads a padded string from the given reader. The padding
 // bytes are removed from the reader.
 func readPaddedString(reader *bytes.Buffer) (string, int, error) {
-	p := bytes.IndexByte(reader.Bytes(), 0)
-	if p < 0 {
-		return "", 0, fmt.Errorf("readPaddedString: %w", io.EOF)
+	//p := bytes.IndexByte(reader.Bytes(), 0)
+	//if p <= 0 {
+	//	return "", 0, fmt.Errorf("readPaddedString: %w", io.EOF)
+	//}
+	//
+	//str := make([]byte, p, 65535)
+	//reader.Read(str)
+
+	str, err := reader.ReadString(0)
+	if err != nil {
+		return "", 0, err
 	}
 
-	str := make([]byte, p)
+	if str[0] == 0 {
+		return "", 0, fmt.Errorf("readPaddedString: empty string")
+	}
+
+	n := len(str)
+	str = str[:n-1]
+
+	// Remove the padding bytes
+	n += len(reader.Next(padBytesNeeded(n)))
+
+	return str, n, nil
+	//return *(*string)(unsafe.Pointer(&str)), n, nil
+}
+
+// readPaddedString2 reads a padded string from the given reader. The padding
+// bytes are removed from the reader.
+func readPaddedString2(reader *bytes.Buffer, s *string) (int, error) {
+	p := bytes.IndexByte(reader.Bytes(), 0)
+	if p < 0 {
+		return 0, fmt.Errorf("readPaddedString2: %w", io.EOF)
+	}
+	if p == 0 {
+		return 0, fmt.Errorf("readPaddedString2: empty string")
+	}
+
+	str := make([]byte, p+1)
 	reader.Read(str)
 
 	n := len(str)
+	str = str[:n-1]
 
 	// Remove the padding bytes
-	reader.Next(padBytesNeeded(n+1) + 1)
-	n += padBytesNeeded(n+1) + 1
+	n += len(reader.Next(padBytesNeeded(n)))
 
-	//return string(str), n, nil
-	return *(*string)(unsafe.Pointer(&str)), n, nil
+	*s = *(*string)(unsafe.Pointer(&str))
+
+	return n, nil
 }
 
 // writePaddedString writes a string with padding bytes to the buffer.

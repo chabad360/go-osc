@@ -26,7 +26,7 @@ func TestReadPacket(t *testing.T) {
 	} {
 		pkt, err := ReadPacket([]byte(tt.msg))
 		if err != nil && tt.ok {
-			t.Errorf("%s: ReadPacket() returned unexpected error; %s", tt.desc, err)
+			t.Fatalf("%s: ReadPacket() returned unexpected error; %s", tt.desc, err)
 		}
 		if err == nil && !tt.ok {
 			t.Errorf("%s: ReadPacket() expected error", tt.desc)

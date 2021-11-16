@@ -4,14 +4,12 @@ import (
 	"bytes"
 	"io"
 	"net"
-	"sync"
 	"time"
 )
 
 var (
 	initBuf = make([]byte, 65535)
 	//buf     = bytes.NewBuffer(make([]byte, 65535))
-	bufPool = sync.Pool{New: func() interface{} { return bytes.NewBuffer(make([]byte, 0, 65535)) }}
 )
 
 // Server represents an OSC server. The server listens on Address and Port for

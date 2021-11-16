@@ -1,14 +1,19 @@
 package osc
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 ////
 // Utility and helper functions
 ////
+var (
+	bufPool = sync.Pool{New: func() interface{} { return bytes.NewBuffer(make([]byte, 0, 65535)) }}
+)
 
 // addressExists returns true if the OSC address `addr` is found in `handlers`.
 func addressExists(addr string, handlers map[string]Handler) bool {

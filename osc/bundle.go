@@ -117,6 +117,14 @@ func (b *Bundle) Append(pck Packet) error {
 
 // UnmarshalBinary implements the BinaryUnmarshaler interface.
 func (b *Bundle) UnmarshalBinary(data []byte) error {
+	if (len(data) % 4) != 0 {
+		return fmt.Errorf("UnmarshalBinary: data isn't mod 4")
+	}
+
+	if len(data) < 20 {
+		return fmt.Errorf("UnmarshalBinary: bundle is too short")
+	}
+
 	reader := bufPool.Get().(*bytes.Buffer)
 	defer bufPool.Put(reader)
 	reader.Reset()
@@ -134,24 +142,19 @@ func (b *Bundle) UnmarshalBinary(data []byte) error {
 	}
 
 	// Read the timetag
-	var timeTag uint64
-	if err = binary.Read(reader, binary.BigEndian, &timeTag); err != nil {
-		return err
-	}
-
 	// Create a new bundle
-	b.Timetag = *NewTimetagFromTimetag(timeTag)
+	b.Timetag = *NewTimetagFromTimetag(binary.BigEndian.Uint64(reader.Next(8)))
 
 	// Read until the end of the buffer
 	for reader.Len() > 0 {
 		// Read the size of the bundle element
-		var length int32
-		if err = binary.Read(reader, binary.BigEndian, &length); err != nil {
-			return err
+		length := int(binary.BigEndian.Uint32(reader.Next(4)))
+		if reader.Len() < length {
+			return fmt.Errorf("invalid bundle element length: %d", length)
 		}
 
 		var p Packet
-		p, err = ReadPacket(reader.Bytes())
+		p, err = ReadPacket(reader.Next(length))
 		if err != nil {
 			return err
 		}
