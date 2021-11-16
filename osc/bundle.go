@@ -13,8 +13,7 @@ import (
 // http://opensoundcontrol.org/spec-1_0 for more information.
 type Bundle struct {
 	Timetag  Timetag
-	Messages []*Message
-	Bundles  []*Bundle
+	Elements []Packet
 }
 
 // Verify that Bundle implements the Packet interface.
@@ -49,33 +48,17 @@ func (b *Bundle) LightMarshalBinary(data *bytes.Buffer) error {
 	binary.BigEndian.PutUint64(buf, uint64(b.Timetag))
 	data.Write(buf)
 
-	// Process all OSC Messages
-	for _, m := range b.Messages {
+	// Process all Bundle elements
+	for _, m := range b.Elements {
 		buf, err := m.MarshalBinary()
 		if err != nil {
 			return err
 		}
 
-		// Append the length of the OSC message
-		bb := make([]byte, 4)
-		binary.BigEndian.PutUint32(bb, uint32(len(buf)))
-		data.Write(bb)
-
-		// Append the OSC message
-		data.Write(buf)
-	}
-
-	// Process all OSC Bundles
-	for _, b := range b.Bundles {
-		buf, err := b.MarshalBinary()
-		if err != nil {
-			return err
-		}
-
 		// Write the size of the bundle
-		bb := make([]byte, 4)
-		binary.BigEndian.PutUint32(bb, uint32(len(buf)))
-		data.Write(bb)
+		b := make([]byte, 4)
+		binary.BigEndian.PutUint32(b, uint32(len(buf)))
+		data.Write(b)
 
 		// Append the bundle
 		data.Write(buf)
@@ -105,11 +88,8 @@ func (b *Bundle) Append(pck Packet) error {
 	default:
 		return fmt.Errorf("unsupported OSC packet type: only Bundle and Message are supported")
 
-	case *Bundle:
-		b.Bundles = append(b.Bundles, t)
-
-	case *Message:
-		b.Messages = append(b.Messages, t)
+	case *Bundle, *Message:
+		b.Elements = append(b.Elements, t)
 	}
 
 	return nil

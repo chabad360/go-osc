@@ -89,20 +89,21 @@ func (s *StandardDispatcher) Dispatch(packet Packet) {
 
 		go func() {
 			<-timer.C
-			for _, message := range p.Messages {
-				for address, handler := range s.handlers {
-					if message.Match(address) {
-						handler.HandleMessage(message)
+			for _, message := range p.Elements {
+				switch m := message.(type) {
+				case *Message:
+					for address, handler := range s.handlers {
+						if m.Match(address) {
+							handler.HandleMessage(m)
+						}
 					}
+					if s.defaultHandler != nil {
+						s.defaultHandler.HandleMessage(m)
+					}
+				case *Bundle:
+					s.Dispatch(m)
 				}
-				if s.defaultHandler != nil {
-					s.defaultHandler.HandleMessage(message)
-				}
-			}
 
-			// Process all bundles
-			for _, b := range p.Bundles {
-				s.Dispatch(b)
 			}
 		}()
 	}
