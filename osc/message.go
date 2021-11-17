@@ -88,7 +88,7 @@ func (m *Message) String() string {
 	strBuf.WriteString(tags)
 
 	for _, arg := range m.Arguments {
-		switch arg.(type) {
+		switch arg := arg.(type) {
 		case bool, int32, int64, float32, float64, string:
 			fmt.Fprintf(strBuf, " %v", arg)
 
@@ -99,19 +99,14 @@ func (m *Message) String() string {
 			strBuf.WriteString(" blob")
 
 		case Timetag:
-			timeTag := arg.(Timetag)
-			fmt.Fprintf(strBuf, " %d", timeTag.TimeTag())
+			fmt.Fprintf(strBuf, " %d", arg.TimeTag())
 		}
 	}
 
 	return strBuf.String()
 }
 
-// MarshalBinary serializes the OSC message to a byte buffer. The byte buffer
-// has the following format:
-// 1. OSC Address Pattern
-// 2. OSC Type Tag String
-// 3. OSC Arguments
+// MarshalBinary implements the encoding.BinaryMarshaler interface.
 func (m *Message) MarshalBinary() (b []byte, err error) {
 	// We can start with the OSC address and add it to the buffer
 	data := bufPool.Get().(*bytes.Buffer)
@@ -138,19 +133,19 @@ func (m *Message) LightMarshalBinary(data *bytes.Buffer) error {
 		case bool, nil:
 			continue
 		case int32:
-			buf := make([]byte, 4)
+			buf := make([]byte, bit32Size)
 			binary.BigEndian.PutUint32(buf, uint32(t))
 			b.Write(buf)
 		case float32:
-			buf := make([]byte, 4)
+			buf := make([]byte, bit32Size)
 			binary.BigEndian.PutUint32(buf, *(*uint32)(unsafe.Pointer(&t)))
 			b.Write(buf)
 		case int64:
-			buf := make([]byte, 8)
+			buf := make([]byte, bit64Size)
 			binary.BigEndian.PutUint64(buf, uint64(t))
 			b.Write(buf)
 		case float64:
-			buf := make([]byte, 8)
+			buf := make([]byte, bit64Size)
 			binary.BigEndian.PutUint64(buf, *(*uint64)(unsafe.Pointer(&t)))
 			b.Write(buf)
 		case string:
@@ -160,13 +155,13 @@ func (m *Message) LightMarshalBinary(data *bytes.Buffer) error {
 				return err
 			}
 		case Timetag:
-			buf := make([]byte, 8)
+			buf := make([]byte, bit64Size)
 			binary.BigEndian.PutUint64(buf, uint64(t))
 			b.Write(buf)
 		}
 	}
 
-	if b.Len() >= len(initBuf) {
+	if b.Len() >= MaxPacketSize {
 		return fmt.Errorf("LightMarshalBinary: payload too large: %d", b.Len())
 	}
 
@@ -182,7 +177,7 @@ func (m *Message) LightMarshalBinary(data *bytes.Buffer) error {
 	// Write the payload (OSC arguments) to the data buffer
 	data.Write(b.Bytes())
 
-	if data.Len() >= len(initBuf) {
+	if data.Len() >= MaxPacketSize {
 		return fmt.Errorf("LightMarshalBinary: packet too large: %d", data.Len())
 	}
 
@@ -197,12 +192,13 @@ func NewMessageFromData(data []byte) (msg *Message, err error) {
 	return msg, nil
 }
 
+// UnmarshalBinary implements the encoding.BinaryUnmarshaler
 func (m *Message) UnmarshalBinary(data []byte) error {
 	if data[0] != '/' {
 		return fmt.Errorf("UnmarshalBinary: data not a valid OSC message")
 	}
 
-	if (len(data) % 4) != 0 {
+	if (len(data) % bit32Size) != 0 {
 		return fmt.Errorf("UnmarshalBinary: data isn't mod 4")
 	}
 
@@ -213,7 +209,6 @@ func (m *Message) UnmarshalBinary(data []byte) error {
 	b.Write(data)
 
 	// First, read the OSC address
-	//var addr string
 	addr, _, err := readPaddedString(b)
 	if err != nil {
 		return fmt.Errorf("UnmarshalBinary: %w", err)
@@ -248,7 +243,7 @@ func (m *Message) readArguments(reader *bytes.Buffer) error {
 	m.Arguments = make([]interface{}, 0, len(typetags)-1)
 
 	for _, c := range typetags[1:] {
-		if reader.Len() < 4 {
+		if reader.Len() < bit32Size {
 			return fmt.Errorf("readArguments: not enough bits to read")
 		}
 		switch c {
@@ -256,17 +251,17 @@ func (m *Message) readArguments(reader *bytes.Buffer) error {
 			return fmt.Errorf("unsupported typetag: %c", c)
 
 		case 'i': // int32
-			m.Arguments = append(m.Arguments, int32(binary.BigEndian.Uint32(reader.Next(4))))
+			m.Arguments = append(m.Arguments, int32(binary.BigEndian.Uint32(reader.Next(bit32Size))))
 
 		case 'h': // int64
-			m.Arguments = append(m.Arguments, int64(binary.BigEndian.Uint64(reader.Next(8))))
+			m.Arguments = append(m.Arguments, int64(binary.BigEndian.Uint64(reader.Next(bit64Size))))
 
 		case 'f': // float32
-			f := binary.BigEndian.Uint32(reader.Next(4))
+			f := binary.BigEndian.Uint32(reader.Next(bit32Size))
 			m.Arguments = append(m.Arguments, *(*float32)(unsafe.Pointer(&f)))
 
 		case 'd': // float64/double
-			f := binary.BigEndian.Uint64(reader.Next(8))
+			f := binary.BigEndian.Uint64(reader.Next(bit64Size))
 			m.Arguments = append(m.Arguments, *(*float64)(unsafe.Pointer(&f)))
 
 		case 's': // string
@@ -291,7 +286,7 @@ func (m *Message) readArguments(reader *bytes.Buffer) error {
 			m.Arguments = append(m.Arguments, buf)
 
 		case 't': // OSC time tag
-			m.Arguments = append(m.Arguments, Timetag(binary.BigEndian.Uint64(reader.Next(8))))
+			m.Arguments = append(m.Arguments, Timetag(binary.BigEndian.Uint64(reader.Next(bit64Size))))
 
 		case 'N': // nil
 			m.Arguments = append(m.Arguments, nil)

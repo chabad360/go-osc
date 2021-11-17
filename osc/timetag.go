@@ -6,8 +6,7 @@ import (
 )
 
 const (
-	// MinValue is the minimum value of an OSC Time Tag.
-	MinValue = uint64(1)
+	secondsFrom1900To1970 = 2208988800
 )
 
 // Timetag represents an OSC Time Tag.
@@ -47,7 +46,7 @@ func (t Timetag) TimeTag() uint64 {
 
 // MarshalBinary converts the OSC time tag to a byte array.
 func (t Timetag) MarshalBinary() (b []byte, err error) {
-	b = make([]byte, 8)
+	b = make([]byte, bit64Size)
 	binary.BigEndian.PutUint64(b, uint64(t))
 	return
 }
@@ -66,7 +65,7 @@ func (t Timetag) ExpiresIn() time.Duration {
 	}
 
 	tt := timetagToTime(t)
-	seconds := tt.Sub(time.Now())
+	seconds := time.Until(tt)
 
 	if seconds <= 0 {
 		return 0

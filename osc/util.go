@@ -12,7 +12,11 @@ import (
 // Utility and helper functions
 ////
 var (
-	bufPool = sync.Pool{New: func() interface{} { return bytes.NewBuffer(make([]byte, 0, 65535)) }}
+	bufPool = sync.Pool{
+		New: func() interface{} {
+			return bytes.NewBuffer(make([]byte, 0, MaxPacketSize))
+		},
+	}
 )
 
 // addressExists returns true if the OSC address `addr` is found in `handlers`.
@@ -40,7 +44,7 @@ func getRegEx(pattern string) (*regexp.Regexp, error) {
 		{"}", ")"},  // Change a '}' to ')'
 		{"?", "."},  // Change a '?' to '.'
 	} {
-		pattern = strings.Replace(pattern, trs.old, trs.new, -1)
+		pattern = strings.ReplaceAll(pattern, trs.old, trs.new)
 	}
 
 	return regexp.Compile(pattern)

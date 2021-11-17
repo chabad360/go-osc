@@ -7,11 +7,6 @@ import (
 	"time"
 )
 
-var (
-	initBuf = make([]byte, 65535)
-	//buf     = bytes.NewBuffer(make([]byte, 65535))
-)
-
 // Server represents an OSC server. The server listens on Address and Port for
 // incoming OSC packets and bundles.
 type Server struct {

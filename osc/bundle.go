@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+const (
+	bundleTagString = "#bundle"
+)
+
 // Bundle represents an OSC bundle. It consists of the OSC-string "#bundle"
 // followed by an OSC Time Tag, followed by zero or more OSC bundle/message
 // elements. The OSC-timetag is a 64-bit fixed point time tag. See
@@ -19,14 +23,7 @@ type Bundle struct {
 // Verify that Bundle implements the Packet interface.
 var _ Packet = (*Bundle)(nil)
 
-// MarshalBinary serializes the OSC bundle to a byte array with the following
-// format:
-// 1. Bundle string: '#bundle'
-// 2. OSC timetag
-// 3. Length of first OSC bundle element
-// 4. First bundle element
-// 5. Length of n OSC bundle element
-// 6. n bundle element
+// MarshalBinary implements the encoding.BinaryMarshaler
 func (b *Bundle) MarshalBinary() (bb []byte, err error) {
 	// Add the '#bundle' string
 	buf := bufPool.Get().(*bytes.Buffer)
@@ -39,7 +36,7 @@ func (b *Bundle) MarshalBinary() (bb []byte, err error) {
 	return append(bb, buf.Bytes()...), nil
 }
 
-// LightMarshalBinary allows you to marshal a bundle into a bytes.Buffer to avoid an allocation
+// LightMarshalBinary allows you to marshal a bundle into a bytes.Buffer to avoid an allocation.
 func (b *Bundle) LightMarshalBinary(data *bytes.Buffer) error {
 	writePaddedString("#bundle", data)
 
@@ -56,7 +53,7 @@ func (b *Bundle) LightMarshalBinary(data *bytes.Buffer) error {
 		}
 
 		// Write the size of the bundle
-		b := make([]byte, 4)
+		b := make([]byte, bit32Size)
 		binary.BigEndian.PutUint32(b, uint32(len(buf)))
 		data.Write(b)
 
@@ -95,9 +92,9 @@ func (b *Bundle) Append(pck Packet) error {
 	return nil
 }
 
-// UnmarshalBinary implements the BinaryUnmarshaler interface.
+// UnmarshalBinary implements the encoding.BinaryUnmarshaler interface.
 func (b *Bundle) UnmarshalBinary(data []byte) error {
-	if (len(data) % 4) != 0 {
+	if (len(data) % bit32Size) != 0 {
 		return fmt.Errorf("UnmarshalBinary: data isn't mod 4")
 	}
 
@@ -123,18 +120,17 @@ func (b *Bundle) UnmarshalBinary(data []byte) error {
 
 	// Read the timetag
 	// Create a new bundle
-	b.Timetag = Timetag(binary.BigEndian.Uint64(reader.Next(8)))
+	b.Timetag = Timetag(binary.BigEndian.Uint64(reader.Next(bit64Size)))
 
 	// Read until the end of the buffer
 	for reader.Len() > 0 {
 		// Read the size of the bundle element
-		length := int(binary.BigEndian.Uint32(reader.Next(4)))
+		length := int(binary.BigEndian.Uint32(reader.Next(bit32Size)))
 		if reader.Len() < length {
 			return fmt.Errorf("invalid bundle element length: %d", length)
 		}
 
-		var p Packet
-		p, err = ReadPacket(reader.Next(length))
+		p, err := ReadPacket(reader.Next(length))
 		if err != nil {
 			return err
 		}

@@ -9,11 +9,6 @@ import (
 	"time"
 )
 
-const (
-	secondsFrom1900To1970 = 2208988800
-	bundleTagString       = "#bundle"
-)
-
 // Dispatcher is an interface for an OSC message dispatcher. A dispatcher is
 // responsible for dispatching received OSC messages.
 type Dispatcher interface {
@@ -103,7 +98,6 @@ func (s *StandardDispatcher) Dispatch(packet Packet) {
 				case *Bundle:
 					s.Dispatch(m)
 				}
-
 			}
 		}()
 	}

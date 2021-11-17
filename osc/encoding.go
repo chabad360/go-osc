@@ -10,13 +10,19 @@ import (
 // De/Encoding functions
 ////
 
+const (
+	MaxPacketSize int = 65535
+	bit32Size     int = 4
+	bit64Size     int = 8
+)
+
 var padBytes = []byte{0, 0, 0, 0}
 
 // readBlob reads an OSC blob from the blob byte array. Padding bytes are
 // removed from the reader and not returned.
 func readBlob(reader *bytes.Buffer) ([]byte, int, error) {
 	// First, get the length
-	var blobLen = int(binary.BigEndian.Uint32(reader.Next(4)))
+	blobLen := int(binary.BigEndian.Uint32(reader.Next(4)))
 	n := 4 + blobLen
 
 	if blobLen < 1 || blobLen > reader.Len() {
@@ -41,13 +47,14 @@ func readBlob(reader *bytes.Buffer) ([]byte, int, error) {
 // writeBlob writes the data byte array as an OSC blob into buff. If the length
 // of data isn't 32-bit aligned, padding bytes will be added.
 func writeBlob(data []byte, buf *bytes.Buffer) (int, error) {
-	if len(data) > len(initBuf)-4 {
+	if len(data) > MaxPacketSize-4 {
 		return 0, fmt.Errorf("writeBlob: blob length greater than 65,531 bytes")
 	}
 
 	// Add the size of the blob
-	//dlen := int32(len(data))
-	binary.Write(buf, binary.BigEndian, int32(len(data)))
+	b := make([]byte, bit32Size)
+	binary.BigEndian.PutUint32(b, uint32(len(data)))
+	buf.Write(b)
 
 	// Write the data
 	n, _ := buf.Write(data)
@@ -62,14 +69,6 @@ func writeBlob(data []byte, buf *bytes.Buffer) (int, error) {
 // readPaddedString reads a padded string from the given reader. The padding
 // bytes are removed from the reader.
 func readPaddedString(reader *bytes.Buffer) (string, int, error) {
-	//p := bytes.IndexByte(reader.Bytes(), 0)
-	//if p <= 0 {
-	//	return "", 0, fmt.Errorf("readPaddedString: %w", io.EOF)
-	//}
-	//
-	//str := make([]byte, p, 65535)
-	//reader.Read(str)
-
 	str, err := reader.ReadString(0)
 	if err != nil {
 		return "", 0, err
@@ -86,7 +85,6 @@ func readPaddedString(reader *bytes.Buffer) (string, int, error) {
 	n += len(reader.Next(padBytesNeeded(n)))
 
 	return str, n, nil
-	//return *(*string)(unsafe.Pointer(&str)), n, nil
 }
 
 // writePaddedString writes a string with padding bytes to the buffer.
@@ -96,7 +94,7 @@ func writePaddedString(str string, buf *bytes.Buffer) int {
 	n, _ := buf.WriteString(str)
 	// Write the null terminator to the buffer as well
 	buf.WriteByte(0)
-	n += 1
+	n++
 
 	// Calculate the padding bytes needed and create a buffer for the padding bytes
 	numPadBytes := padBytesNeeded(n)
