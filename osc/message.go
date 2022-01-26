@@ -269,9 +269,16 @@ func (m *Message) readArguments(reader *bytes.Buffer) error {
 			if err != nil {
 				return err
 			}
-			// Remove the padding bytes
-			reader.Next(padBytesNeeded(len(str)))
-			str = str[:len(str)-1]
+
+			if str[0] == 0 {
+				str = str[:len(str)-1]
+				reader.Next(padBytesNeeded(len(str)))
+			} else {
+				// Remove the padding bytes
+				reader.Next(padBytesNeeded(len(str)))
+				str = str[:len(str)-1]
+
+			}
 
 			m.Arguments = append(m.Arguments, str)
 
