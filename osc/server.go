@@ -13,6 +13,7 @@ type Server struct {
 	Addr        string
 	Dispatcher  Dispatcher
 	ReadTimeout time.Duration
+	close       func() error
 }
 
 // ListenAndServe retrieves incoming OSC packets and dispatches the retrieved
@@ -26,9 +27,18 @@ func (s *Server) ListenAndServe() error {
 	if err != nil {
 		return err
 	}
+	s.close = ln.Close
 	defer ln.Close()
 
 	return s.Serve(ln)
+}
+
+// Close shuts down the server and closes it's upd connection
+func (s *Server) Close() error {
+	if s.close != nil {
+		return s.close()
+	}
+	return nil
 }
 
 // Serve retrieves incoming OSC packets from the given connection and dispatches
