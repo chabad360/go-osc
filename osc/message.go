@@ -269,9 +269,6 @@ func (m *Message) readArguments(reader *bytes.Buffer) error {
 			if err != nil {
 				return err
 			}
-			if str[0] == 0 {
-				return fmt.Errorf("readArguments: empty string")
-			}
 			// Remove the padding bytes
 			reader.Next(padBytesNeeded(len(str)))
 			str = str[:len(str)-1]
