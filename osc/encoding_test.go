@@ -22,7 +22,7 @@ func TestReadPaddedString(t *testing.T) {
 		{[]byte{'t', 'e', 's', 't'}, 0, "", io.EOF},           // if there is no null byte at the end, it doesn't work.
 		{[]byte{0, 0, 0, 0}, 4, "", nil},
 	} {
-		got, got1, err := readPaddedString(bytes.NewBuffer(tt.buf))
+		got, got1, err := readPaddedString(tt.buf)
 		if !errors.Is(err, tt.err) {
 			t.Errorf("%s: Error reading padded string: %s", tt.want1, err)
 		}
@@ -97,7 +97,7 @@ func TestReadBlob(t *testing.T) {
 		{"proper value", []byte{0, 0, 0, 1, 10, 0, 0, 0}, []byte{10}, 8, false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := readBlob(bytes.NewBuffer((tt.args)))
+			got, got1, err := readBlob(tt.args)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("readBlob() error = %v, wantErr %v", err, tt.wantErr)
 				return

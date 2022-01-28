@@ -193,43 +193,42 @@ func NewMessageFromData(data []byte) (msg *Message, err error) {
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler
-func (m *Message) UnmarshalBinary(data []byte) error {
-	if data[0] != '/' {
+func (m *Message) UnmarshalBinary(b []byte) error {
+	if b[0] != '/' {
 		return fmt.Errorf("UnmarshalBinary: data not a valid OSC message")
 	}
 
-	if (len(data) % bit32Size) != 0 {
-		return fmt.Errorf("UnmarshalBinary: data isn't mod 4")
+	if (len(b) % bit32Size) != 0 {
+		return fmt.Errorf("UnmarshalBinary: data isn't mod 4") //TODO: error hygiene
 	}
 
-	b := bufPool.Get().(*bytes.Buffer)
-	defer bufPool.Put(b)
-	b.Reset()
-
-	b.Write(data)
+	data := make([]byte, len(b))
+	copy(data, b)
 
 	// First, read the OSC address
-	addr, _, err := readPaddedString(b)
+	addr, n, err := readPaddedString(data)
 	if err != nil {
 		return fmt.Errorf("UnmarshalBinary: %w", err)
 	}
 
 	// Read all arguments
 	m.Address = addr
-	if err = m.readArguments(b); err != nil {
+	data = data[n:]
+	if err = m.readArguments(data); err != nil {
 		return fmt.Errorf("UnmarshalBinary: %w", err)
 	}
 
 	return nil
 }
 
-// readArguments from `reader` and add them to the OSC message `msg`.
-func (m *Message) readArguments(reader *bytes.Buffer) error {
+// readArguments parses a []byte with OSC arguments and add them to the OSC message `msg`.
+func (m *Message) readArguments(data []byte) error {
 	// Read the type tag string
-	typetags, _, err := readPaddedString(reader)
+	typetags, n, err := readPaddedString(data)
 	if err != nil {
 		return fmt.Errorf("readArguments: %w", err)
 	}
+	data = data[n:]
 
 	if len(typetags) == 0 {
 		return nil
@@ -240,10 +239,12 @@ func (m *Message) readArguments(reader *bytes.Buffer) error {
 		return fmt.Errorf("unsupported typetag string: %s", typetags)
 	}
 
-	m.Arguments = make([]interface{}, 0, len(typetags)-1)
+	typetags = typetags[1:]
 
-	for _, c := range typetags[1:] {
-		if reader.Len() < bit32Size {
+	m.Arguments = make([]interface{}, 0, len(typetags))
+
+	for _, c := range typetags {
+		if len(data) < bit32Size {
 			return fmt.Errorf("readArguments: not enough bits to read")
 		}
 		switch c {
@@ -251,51 +252,51 @@ func (m *Message) readArguments(reader *bytes.Buffer) error {
 			return fmt.Errorf("unsupported typetag: %c", c)
 
 		case 'i': // int32
-			m.Arguments = append(m.Arguments, int32(binary.BigEndian.Uint32(reader.Next(bit32Size))))
+			m.Arguments = append(m.Arguments, int32(binary.BigEndian.Uint32(data[:bit32Size])))
+			data = data[bit32Size:]
 
 		case 'h': // int64
-			if reader.Len() < bit64Size {
+			if len(data) < bit64Size {
 				return fmt.Errorf("readArguments: not enough bits to read")
 			}
-			m.Arguments = append(m.Arguments, int64(binary.BigEndian.Uint64(reader.Next(bit64Size))))
+			m.Arguments = append(m.Arguments, int64(binary.BigEndian.Uint64(data[:bit64Size])))
+			data = data[bit64Size:]
 
 		case 'f': // float32
-			f := binary.BigEndian.Uint32(reader.Next(bit32Size))
-			m.Arguments = append(m.Arguments, *(*float32)(unsafe.Pointer(&f)))
+			b := binary.BigEndian.Uint32(data[:bit32Size])
+			m.Arguments = append(m.Arguments, *(*float32)(unsafe.Pointer(&b)))
+			data = data[bit32Size:]
 
 		case 'd': // float64/double
-			if reader.Len() < bit64Size {
+			if len(data) < bit64Size {
 				return fmt.Errorf("readArguments: not enough bits to read")
 			}
-			f := binary.BigEndian.Uint64(reader.Next(bit64Size))
+			f := binary.BigEndian.Uint64(data[:bit64Size])
 			m.Arguments = append(m.Arguments, *(*float64)(unsafe.Pointer(&f)))
+			data = data[bit64Size:]
 
 		case 's': // string
-			str, err := reader.ReadString(0)
+			str, n, err := readPaddedString(data)
 			if err != nil {
-				return err
+				return fmt.Errorf("readArguments: %w", err)
 			}
-			if str[0] == 0 {
-				return fmt.Errorf("readArguments: empty string")
-			}
-			// Remove the padding bytes
-			reader.Next(padBytesNeeded(len(str)))
-			str = str[:len(str)-1]
-
 			m.Arguments = append(m.Arguments, str)
+			data = data[n:]
 
 		case 'b': // blob
-			var buf []byte
-			if buf, _, err = readBlob(reader); err != nil {
+			buf, n, err := readBlob(data)
+			if err != nil {
 				return fmt.Errorf("readArguments: %w", err)
 			}
 			m.Arguments = append(m.Arguments, buf)
+			data = data[n:]
 
 		case 't': // OSC time tag
-			if reader.Len() < bit64Size {
+			if len(data) < bit64Size {
 				return fmt.Errorf("readArguments: not enough bits to read")
 			}
-			m.Arguments = append(m.Arguments, Timetag(binary.BigEndian.Uint64(reader.Next(bit64Size))))
+			m.Arguments = append(m.Arguments, Timetag(binary.BigEndian.Uint64(data[:bit64Size])))
+			data = data[bit64Size:]
 
 		case 'N': // nil
 			m.Arguments = append(m.Arguments, nil)
