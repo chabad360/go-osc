@@ -93,26 +93,24 @@ func (b *Bundle) Append(pck Packet) error {
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface.
-func (b *Bundle) UnmarshalBinary(data []byte) error {
-	if (len(data) % bit32Size) != 0 {
-		return fmt.Errorf("UnmarshalBinary: data isn't mod 4")
+func (b *Bundle) UnmarshalBinary(d []byte) error {
+	if (len(d) % bit32Size) != 0 {
+		return fmt.Errorf("UnmarshalBinary: data isn't padded properly")
 	}
 
-	if len(data) < 20 {
+	if len(d) < 20 {
 		return fmt.Errorf("UnmarshalBinary: bundle is too short")
 	}
 
-	reader := bufPool.Get().(*bytes.Buffer)
-	defer bufPool.Put(reader)
-	reader.Reset()
-
-	reader.Write(data)
+	data := make([]byte, len(d))
+	copy(data, d)
 
 	// Read the '#bundle' OSC string
-	startTag, _, err := readPaddedString(reader)
+	startTag, n, err := readPaddedString(data)
 	if err != nil {
 		return err
 	}
+	data = data[n:]
 
 	if startTag != bundleTagString {
 		return fmt.Errorf("invalid bundle start tag: %s", startTag)
@@ -120,20 +118,23 @@ func (b *Bundle) UnmarshalBinary(data []byte) error {
 
 	// Read the timetag
 	// Create a new bundle
-	b.Timetag = Timetag(binary.BigEndian.Uint64(reader.Next(bit64Size)))
+	b.Timetag = Timetag(binary.BigEndian.Uint64(data[:bit64Size]))
+	data = data[bit64Size:]
 
 	// Read until the end of the buffer
-	for reader.Len() > 0 {
+	for len(data) > 0 {
 		// Read the size of the bundle element
-		length := int(binary.BigEndian.Uint32(reader.Next(bit32Size)))
-		if reader.Len() < length {
+		length := int(binary.BigEndian.Uint32(data[:bit32Size]))
+		if len(data) < length {
 			return fmt.Errorf("invalid bundle element length: %d", length)
 		}
+		data = data[bit32Size:]
 
-		p, err := ReadPacket(reader.Next(length))
+		p, err := ReadPacket(data[:length])
 		if err != nil {
 			return err
 		}
+		data = data[length:]
 		b.Append(p)
 	}
 
