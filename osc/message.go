@@ -254,6 +254,9 @@ func (m *Message) readArguments(reader *bytes.Buffer) error {
 			m.Arguments = append(m.Arguments, int32(binary.BigEndian.Uint32(reader.Next(bit32Size))))
 
 		case 'h': // int64
+			if reader.Len() < bit64Size {
+				return fmt.Errorf("readArguments: not enough bits to read")
+			}
 			m.Arguments = append(m.Arguments, int64(binary.BigEndian.Uint64(reader.Next(bit64Size))))
 
 		case 'f': // float32
@@ -261,6 +264,9 @@ func (m *Message) readArguments(reader *bytes.Buffer) error {
 			m.Arguments = append(m.Arguments, *(*float32)(unsafe.Pointer(&f)))
 
 		case 'd': // float64/double
+			if reader.Len() < bit64Size {
+				return fmt.Errorf("readArguments: not enough bits to read")
+			}
 			f := binary.BigEndian.Uint64(reader.Next(bit64Size))
 			m.Arguments = append(m.Arguments, *(*float64)(unsafe.Pointer(&f)))
 
@@ -286,6 +292,9 @@ func (m *Message) readArguments(reader *bytes.Buffer) error {
 			m.Arguments = append(m.Arguments, buf)
 
 		case 't': // OSC time tag
+			if reader.Len() < bit64Size {
+				return fmt.Errorf("readArguments: not enough bits to read")
+			}
 			m.Arguments = append(m.Arguments, Timetag(binary.BigEndian.Uint64(reader.Next(bit64Size))))
 
 		case 'N': // nil

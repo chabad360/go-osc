@@ -21,6 +21,7 @@ func TestReadPacket(t *testing.T) {
 			makePacket("/d/e/f", []string{"foo"}),
 			true},
 		{"empty", "", nil, false},
+		{"badInt", "/a" + nulls(2) + ",h" + nulls(2) + nulls(4), nil, false},
 		{"designed",
 			string(msg), temp, true},
 	} {

@@ -20,7 +20,7 @@ func TestReadPaddedString(t *testing.T) {
 		{[]byte{'t', 'e', 's', 't', 's', 0, 0, 0}, 8, "tests", nil},
 		{[]byte{'t', 'e', 's', 0, 0, 0, 0, 0}, 4, "tes", nil}, // OSC uses null terminated strings
 		{[]byte{'t', 'e', 's', 't'}, 0, "", io.EOF},           // if there is no null byte at the end, it doesn't work.
-
+		{[]byte{0, 0, 0, 0}, 4, "", nil},
 	} {
 		got, got1, err := readPaddedString(bytes.NewBuffer(tt.buf))
 		if !errors.Is(err, tt.err) {

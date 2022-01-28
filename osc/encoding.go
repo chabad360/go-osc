@@ -74,10 +74,6 @@ func readPaddedString(reader *bytes.Buffer) (string, int, error) {
 		return "", 0, err
 	}
 
-	if str[0] == 0 {
-		return "", 0, fmt.Errorf("readPaddedString: empty string")
-	}
-
 	n := len(str)
 	str = str[:n-1]
 
