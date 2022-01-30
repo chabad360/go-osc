@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestReadPacket(t *testing.T) {
+func TestparsePacket(t *testing.T) {
 	for _, tt := range []struct {
 		desc string
 		msg  string
@@ -25,12 +25,12 @@ func TestReadPacket(t *testing.T) {
 		{"designed",
 			string(msg), temp, true},
 	} {
-		pkt, err := ReadPacket([]byte(tt.msg))
+		pkt, err := parsePacket([]byte(tt.msg))
 		if err != nil && tt.ok {
-			t.Fatalf("%s: ReadPacket() returned unexpected error; %s", tt.desc, err)
+			t.Fatalf("%s: parsePacket() returned unexpected error; %s", tt.desc, err)
 		}
 		if err == nil && !tt.ok {
-			t.Errorf("%s: ReadPacket() expected error", tt.desc)
+			t.Errorf("%s: parsePacket() expected error", tt.desc)
 		}
 		if !tt.ok {
 			continue
@@ -47,7 +47,7 @@ func TestReadPacket(t *testing.T) {
 			continue
 		}
 		if !reflect.DeepEqual(pktBytes, ttpktBytes) {
-			t.Errorf("%s: ReadPacket() as bytes = '%s', want = '%s'", tt.desc, pktBytes, ttpktBytes)
+			t.Errorf("%s: parsePacket() as bytes = '%s', want = '%s'", tt.desc, pktBytes, ttpktBytes)
 			continue
 		}
 	}
@@ -56,12 +56,12 @@ func TestReadPacket(t *testing.T) {
 var temp = &Message{Address: "/composition/layers/1/clips/1/transport/position", Arguments: []interface{}{0.123456789, "hello world"}}
 var msg, _ = temp.MarshalBinary()
 
-func BenchmarkReadPacket(b *testing.B) {
+func BenchmarkparsePacket(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	var p Packet
 	for n := 0; n < b.N; n++ {
-		p, _ = ReadPacket(msg)
+		p, _ = parsePacket(msg)
 	}
 	result = p
 }

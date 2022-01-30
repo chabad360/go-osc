@@ -30,8 +30,8 @@ func NewMessage(addr string, args ...interface{}) *Message {
 // Append appends the given arguments to the arguments list.
 func (m *Message) Append(args ...interface{}) error {
 	for _, a := range args {
-		if _, err := GetTypeTag(a); err != nil {
-			return err
+		if t := ToTypeTag(a); t == 0 {
+			return fmt.Errorf("unsupported type: %T", a)
 		}
 	}
 	m.Arguments = append(m.Arguments, args...)
@@ -57,11 +57,11 @@ func (m *Message) TypeTags() (string, error) {
 	tags := make([]byte, 0, len(m.Arguments)+1)
 	tags = append(tags, ',')
 	for _, args := range m.Arguments {
-		s, err := GetTypeTag(args)
-		if err != nil {
-			return "", err
+		s := ToTypeTag(args)
+		if s == 0 {
+			return "", fmt.Errorf("unsupported type: %T", args)
 		}
-		tags = append(tags, s...)
+		tags = append(tags, byte(s))
 	}
 
 	return *(*string)(unsafe.Pointer(&tags)), nil
@@ -184,6 +184,7 @@ func (m *Message) LightMarshalBinary(data *bytes.Buffer) error {
 	return nil
 }
 
+// NewMessageFromData returns a new OSC message created from the parsed data.
 func NewMessageFromData(data []byte) (msg *Message, err error) {
 	msg = &Message{}
 	if err = msg.UnmarshalBinary(data); err != nil {
@@ -192,41 +193,55 @@ func NewMessageFromData(data []byte) (msg *Message, err error) {
 	return msg, nil
 }
 
-// UnmarshalBinary implements the encoding.BinaryUnmarshaler
-func (m *Message) UnmarshalBinary(b []byte) error {
-	if b[0] != '/' {
+// newMessageFromData assumes that the bytes have already been copied.
+func newMessageFromData(data []byte) (msg *Message, err error) {
+	msg = &Message{}
+	if err = msg.unmarshalBinary(data); err != nil {
+		return nil, err
+	}
+	return msg, nil
+}
+
+// UnmarshalBinary implements the encoding.BinaryUnmarshaler interface.
+func (m *Message) UnmarshalBinary(d []byte) error {
+	data := make([]byte, len(d))
+	copy(data, d)
+
+	return m.unmarshalBinary(data)
+}
+
+// unmarshalBinary is the actual implementation, it doesn't copy, so we can use a single copy for bundles.
+func (m *Message) unmarshalBinary(data []byte) error {
+	if data[0] != '/' {
 		return fmt.Errorf("UnmarshalBinary: data not a valid OSC message")
 	}
 
-	if (len(b) % bit32Size) != 0 {
+	if (len(data) % bit32Size) != 0 {
 		return fmt.Errorf("UnmarshalBinary: data isn't mod 4") //TODO: error hygiene
 	}
 
-	data := make([]byte, len(b))
-	copy(data, b)
-
 	// First, read the OSC address
-	addr, n, err := readPaddedString(data)
+	addr, n, err := parsePaddedString(data)
 	if err != nil {
 		return fmt.Errorf("UnmarshalBinary: %w", err)
 	}
 
-	// Read all arguments
+	// parse all arguments
 	m.Address = addr
 	data = data[n:]
-	if err = m.readArguments(data); err != nil {
+	if err = m.parseArguments(data); err != nil {
 		return fmt.Errorf("UnmarshalBinary: %w", err)
 	}
 
 	return nil
 }
 
-// readArguments parses a []byte with OSC arguments and add them to the OSC message `msg`.
-func (m *Message) readArguments(data []byte) error {
-	// Read the type tag string
-	typetags, n, err := readPaddedString(data)
+// parseArguments parses a []byte with OSC arguments and add them to the OSC message `msg`.
+func (m *Message) parseArguments(data []byte) error {
+	// parse the type tag string
+	typetags, n, err := parsePaddedString(data)
 	if err != nil {
-		return fmt.Errorf("readArguments: %w", err)
+		return fmt.Errorf("parseArguments: %w", err)
 	}
 	data = data[n:]
 
@@ -245,29 +260,29 @@ func (m *Message) readArguments(data []byte) error {
 
 	for _, c := range typetags {
 		if len(data) < bit32Size {
-			return fmt.Errorf("readArguments: not enough bits to read")
+			return fmt.Errorf("parseArguments: not enough bits to read")
 		}
-		switch c {
+		switch TypeTag(c) {
 		default:
 			return fmt.Errorf("unsupported typetag: %c", c)
 
-		case 'i': // int32
+		case Int32:
 			m.Arguments = append(m.Arguments, int32(binary.BigEndian.Uint32(data[:bit32Size])))
 			data = data[bit32Size:]
 
-		case 'h': // int64
+		case Int64:
 			if len(data) < bit64Size {
 				return fmt.Errorf("readArguments: not enough bits to read")
 			}
 			m.Arguments = append(m.Arguments, int64(binary.BigEndian.Uint64(data[:bit64Size])))
 			data = data[bit64Size:]
 
-		case 'f': // float32
+		case Float32:
 			b := binary.BigEndian.Uint32(data[:bit32Size])
 			m.Arguments = append(m.Arguments, *(*float32)(unsafe.Pointer(&b)))
 			data = data[bit32Size:]
 
-		case 'd': // float64/double
+		case Float64:
 			if len(data) < bit64Size {
 				return fmt.Errorf("readArguments: not enough bits to read")
 			}
@@ -275,36 +290,36 @@ func (m *Message) readArguments(data []byte) error {
 			m.Arguments = append(m.Arguments, *(*float64)(unsafe.Pointer(&f)))
 			data = data[bit64Size:]
 
-		case 's': // string
-			str, n, err := readPaddedString(data)
+		case String:
+			str, n, err := parsePaddedString(data)
 			if err != nil {
 				return fmt.Errorf("readArguments: %w", err)
 			}
 			m.Arguments = append(m.Arguments, str)
 			data = data[n:]
 
-		case 'b': // blob
-			buf, n, err := readBlob(data)
+		case Blob:
+			buf, n, err := parseBlob(data)
 			if err != nil {
 				return fmt.Errorf("readArguments: %w", err)
 			}
 			m.Arguments = append(m.Arguments, buf)
 			data = data[n:]
 
-		case 't': // OSC time tag
+		case TimeTag:
 			if len(data) < bit64Size {
 				return fmt.Errorf("readArguments: not enough bits to read")
 			}
 			m.Arguments = append(m.Arguments, Timetag(binary.BigEndian.Uint64(data[:bit64Size])))
 			data = data[bit64Size:]
 
-		case 'N': // nil
+		case Nil:
 			m.Arguments = append(m.Arguments, nil)
 
-		case 'T': // true
+		case True:
 			m.Arguments = append(m.Arguments, true)
 
-		case 'F': // false
+		case False:
 			m.Arguments = append(m.Arguments, false)
 		}
 	}
