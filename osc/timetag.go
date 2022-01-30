@@ -17,6 +17,11 @@ const (
 // 200 picoseconds. This is the representation used by Internet NTP timestamps.
 type Timetag uint64
 
+// NewTimetag returns a new OSC time tag object with the time set to now.
+func NewTimetag() Timetag {
+	return Timetag(timeToTimetag(time.Now()))
+}
+
 // NewTimetagFromTime returns a new OSC time tag object from a time.Time.
 func NewTimetagFromTime(timeStamp time.Time) Timetag {
 	return Timetag(timeToTimetag(timeStamp))

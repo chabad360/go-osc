@@ -90,5 +90,5 @@ func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
 		return nil, err
 	}
 
-	return ReadPacket(b.Bytes())
+	return ParsePacket(b.Bytes())
 }

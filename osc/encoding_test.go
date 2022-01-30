@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestReadPaddedString(t *testing.T) {
+func TestparsePaddedString(t *testing.T) {
 	for _, tt := range []struct {
 		buf   []byte // buffer
 		want  int    // bytes needed
@@ -22,9 +22,9 @@ func TestReadPaddedString(t *testing.T) {
 		{[]byte{'t', 'e', 's', 't'}, 0, "", io.EOF},           // if there is no null byte at the end, it doesn't work.
 		{[]byte{0, 0, 0, 0}, 4, "", nil},
 	} {
-		got, got1, err := readPaddedString(tt.buf)
+		got, got1, err := parsePaddedString(tt.buf)
 		if !errors.Is(err, tt.err) {
-			t.Errorf("%s: Error reading padded string: %s", tt.want1, err)
+			t.Errorf("%s: Error parseing padded string: %s", tt.want1, err)
 		}
 		if got1 != tt.want {
 			t.Errorf("%s: Bytes needed don't match; got = %d, want = %d", tt.want1, got1, tt.want)
@@ -84,7 +84,7 @@ func TestPadBytesNeeded(t *testing.T) {
 	}
 }
 
-func TestReadBlob(t *testing.T) {
+func TestparseBlob(t *testing.T) {
 	for _, tt := range []struct {
 		name    string
 		args    []byte
@@ -97,16 +97,16 @@ func TestReadBlob(t *testing.T) {
 		{"proper value", []byte{0, 0, 0, 1, 10, 0, 0, 0}, []byte{10}, 8, false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := readBlob(tt.args)
+			got, got1, err := parseBlob(tt.args)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("readBlob() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("parseBlob() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("readBlob() got = %v, want %v", got, tt.want)
+				t.Errorf("parseBlob() got = %v, want %v", got, tt.want)
 			}
 			if got1 != tt.want1 {
-				t.Errorf("readBlob() got1 = %v, want %v", got1, tt.want1)
+				t.Errorf("parseBlob() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}

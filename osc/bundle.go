@@ -73,10 +73,23 @@ func NewBundleFromData(data []byte) (b *Bundle, err error) {
 	return b, nil
 }
 
-// NewBundle returns an OSC Bundle. Use this function to create a new OSC
-// Bundle.
-func NewBundle(time time.Time) *Bundle {
+// newBundleFromData assumes that the bytes have already been copied.
+func newBundleFromData(data []byte) (b *Bundle, err error) {
+	b = &Bundle{}
+	if err = b.unmarshalBinary(data); err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+// NewBundleWithTime returns an OSC Bundle. Use this function to create a new OSC Bundle.
+func NewBundleWithTime(time time.Time) *Bundle {
 	return &Bundle{Timetag: NewTimetagFromTime(time)}
+}
+
+// NewBundle returns an empty OSC Bundle.
+func NewBundle() *Bundle {
+	return &Bundle{Timetag: NewTimetag()}
 }
 
 // Append appends an OSC bundle or OSC message to the bundle.
@@ -94,19 +107,24 @@ func (b *Bundle) Append(pck Packet) error {
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface.
 func (b *Bundle) UnmarshalBinary(d []byte) error {
-	if (len(d) % bit32Size) != 0 {
-		return fmt.Errorf("UnmarshalBinary: data isn't padded properly")
-	}
-
-	if len(d) < 20 {
-		return fmt.Errorf("UnmarshalBinary: bundle is too short")
-	}
-
 	data := make([]byte, len(d))
 	copy(data, d)
 
+	return b.unmarshalBinary(data)
+}
+
+// unmarshalBinary is the actual implementation, it doesn't copy, so we can use a single copy for bundles.
+func (b *Bundle) unmarshalBinary(data []byte) error {
+	if (len(data) % bit32Size) != 0 {
+		return fmt.Errorf("UnmarshalBinary: data isn't padded properly")
+	}
+
+	if len(data) < 20 {
+		return fmt.Errorf("UnmarshalBinary: bundle is too short")
+	}
+
 	// Read the '#bundle' OSC string
-	startTag, n, err := readPaddedString(data)
+	startTag, n, err := parsePaddedString(data)
 	if err != nil {
 		return err
 	}
@@ -130,7 +148,7 @@ func (b *Bundle) UnmarshalBinary(d []byte) error {
 		}
 		data = data[bit32Size:]
 
-		p, err := ReadPacket(data[:length])
+		p, err := parsePacket(data[:length])
 		if err != nil {
 			return err
 		}

@@ -20,16 +20,16 @@ const (
 
 var padBytes = []byte{0, 0, 0, 0}
 
-// readBlob reads an OSC blob from the blob byte array. Padding bytes are
+// parseBlob parses an OSC blob from the blob byte array. Padding bytes are
 // removed from the reader and not returned.
-func readBlob(data []byte) ([]byte, int, error) {
+func parseBlob(data []byte) ([]byte, int, error) {
 	// First, get the length
 	blobLen := int(binary.BigEndian.Uint32(data[:bit32Size]))
 	n := bit32Size + blobLen
 	data = data[bit32Size:]
 
 	if blobLen < 1 || blobLen > len(data) {
-		return nil, 0, fmt.Errorf("readBlob: invalid blob length %d", blobLen)
+		return nil, 0, fmt.Errorf("parseBlob: invalid blob length %d", blobLen)
 	}
 
 	return data[:blobLen], n + padBytesNeeded(n), nil
@@ -57,8 +57,8 @@ func writeBlob(data []byte, buf *bytes.Buffer) (int, error) {
 	return 4 + n + numPadBytes, nil
 }
 
-// readPaddedString reads a padded string from the given slice and returns the string and the number of bytes read.
-func readPaddedString(data []byte) (string, int, error) {
+// parsePaddedString reads a padded string from the given slice and returns the string and the number of bytes read.
+func parsePaddedString(data []byte) (string, int, error) {
 	pos := bytes.IndexByte(data, 0)
 	if pos == -1 {
 		return "", 0, fmt.Errorf("readPaddedString: %w", io.EOF)
