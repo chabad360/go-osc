@@ -37,24 +37,15 @@ func parseBlob(data []byte) ([]byte, int, error) {
 
 // writeBlob writes the data byte array as an OSC blob into buff. If the length
 // of data isn't 32-bit aligned, padding bytes will be added.
-func writeBlob(data []byte, buf *bytes.Buffer) (int, error) {
-	if len(data) > MaxPacketSize-4 { // TODO: properly compute packet size
-		return 0, fmt.Errorf("writeBlob: blob length greater than 65,503 bytes")
-	}
-
+func writeBlob(data []byte, b []byte) int {
 	// Add the size of the blob
-	b := make([]byte, bit32Size)
-	binary.BigEndian.PutUint32(b, uint32(len(data)))
-	buf.Write(b)
+	binary.BigEndian.PutUint32(b[:bit32Size], uint32(len(data)))
+	n := bit32Size
 
 	// Write the data
-	n, _ := buf.Write(data)
+	n += copy(b[n:], data)
 
-	// Add padding bytes if necessary
-	numPadBytes := padBytesNeeded(n)
-	buf.Write(padBytes[:numPadBytes])
-
-	return 4 + n + numPadBytes, nil
+	return n + padBytesNeeded(n)
 }
 
 // parsePaddedString reads a padded string from the given slice and returns the string and the number of bytes read.
@@ -71,19 +62,30 @@ func parsePaddedString(data []byte) (string, int, error) {
 
 // writePaddedString writes a string with padding bytes to the buffer.
 // Returns, the number of written bytes and an error if any.
-func writePaddedString(str string, buf *bytes.Buffer) int {
+func writePaddedString(str string, b []byte) int {
 	// Write the string to the buffer
-	n, _ := buf.WriteString(str)
-	// Write the null terminator to the buffer as well
-	buf.WriteByte(0)
+	n := copy(b, str)
 	n++
 
-	// Calculate the padding bytes needed and create a buffer for the padding bytes
-	numPadBytes := padBytesNeeded(n)
-	// Add the padding bytes to the buffer
-	buf.Write(padBytes[:numPadBytes])
+	// Calculate and add the padding bytes needed
+	//n += copy(b[n:], padBytes[:padBytesNeeded(n)])
 
-	return n + numPadBytes
+	return n + padBytesNeeded(n)
+}
+
+func writeTypeTags(elems []interface{}, b []byte) (int, error) {
+	b[0] = ','
+	n := 1
+	for _, elem := range elems {
+		s := ToTypeTag(elem)
+		if s == 0 {
+			return 0, fmt.Errorf("writeTypeTags: unsupported type: %T", elem)
+		}
+		b[n] = byte(s)
+		n++
+	}
+
+	return n, nil
 }
 
 // padBytesNeeded determines how many bytes are needed to fill up to the next 4

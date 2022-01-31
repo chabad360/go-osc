@@ -1,7 +1,6 @@
 package osc
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"time"
@@ -24,44 +23,34 @@ type Bundle struct {
 var _ Packet = (*Bundle)(nil)
 
 // MarshalBinary implements the encoding.BinaryMarshaler
-func (b *Bundle) MarshalBinary() (bb []byte, err error) {
+func (b *Bundle) MarshalBinary() ([]byte, error) {
+	buf := [MaxPacketSize]byte{}
 	// Add the '#bundle' string
-	buf := bufPool.Get().(*bytes.Buffer)
-	defer bufPool.Put(buf)
-	buf.Reset()
-
-	if err = b.LightMarshalBinary(buf); err != nil {
-		return nil, err
-	}
-	return append(bb, buf.Bytes()...), nil
-}
-
-// LightMarshalBinary allows you to marshal a bundle into a bytes.Buffer to avoid an allocation.
-func (b *Bundle) LightMarshalBinary(data *bytes.Buffer) error {
-	writePaddedString("#bundle", data)
+	n := writePaddedString("#bundle", buf[:])
 
 	// Add the time tag
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, uint64(b.Timetag))
-	data.Write(buf)
+	binary.BigEndian.PutUint64(buf[n:bit64Size], uint64(b.Timetag))
+	n += bit64Size
 
 	// Process all Bundle elements
 	for _, m := range b.Elements {
-		buf, err := m.MarshalBinary()
+		bb, err := m.MarshalBinary()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		// Write the size of the bundle
-		b := make([]byte, bit32Size)
-		binary.BigEndian.PutUint32(b, uint32(len(buf)))
-		data.Write(b)
+		// Write the size of the element
+		binary.BigEndian.PutUint32(buf[n:bit32Size], uint32(len(buf)))
+		n += bit32Size
 
 		// Append the bundle
-		data.Write(buf)
+		n += copy(buf[n:], bb)
 	}
 
-	return nil
+	bb := make([]byte, n)
+	copy(bb, buf[:])
+
+	return bb, nil
 }
 
 // NewBundleFromData returns a new OSC bundle created from the parsed data.

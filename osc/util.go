@@ -16,6 +16,11 @@ var (
 			return bytes.NewBuffer(make([]byte, 0, MaxPacketSize))
 		},
 	}
+	bPool = sync.Pool{
+		New: func() interface{} {
+			return make([]byte, MaxPacketSize)
+		},
+	}
 )
 
 // addressExists returns true if the OSC address `addr` is found in `handlers`.
