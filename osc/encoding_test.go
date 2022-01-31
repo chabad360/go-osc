@@ -7,7 +7,35 @@ import (
 	"testing"
 )
 
-func TestparsePaddedString(t *testing.T) {
+func TestParseBlob(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		args    []byte
+		want    []byte
+		want1   int
+		wantErr bool
+	}{
+		{"negative value", []byte{255, 255, 255, 255}, nil, 0, true},
+		{"large value", []byte{0, 1, 17, 112}, nil, 0, true},
+		{"proper value", []byte{0, 0, 0, 1, 10, 0, 0, 0}, []byte{10}, 8, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1, err := parseBlob(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseBlob() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseBlob() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("parseBlob() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
+
+func TestParsePaddedString(t *testing.T) {
 	for _, tt := range []struct {
 		buf   []byte // buffer
 		want  int    // bytes needed
@@ -82,30 +110,41 @@ func TestPadBytesNeeded(t *testing.T) {
 	}
 }
 
-func TestparseBlob(t *testing.T) {
-	for _, tt := range []struct {
-		name    string
-		args    []byte
-		want    []byte
-		want1   int
-		wantErr bool
-	}{
-		{"negative value", []byte{255, 255, 255, 255}, nil, 0, true},
-		{"large value", []byte{0, 1, 17, 112}, nil, 0, true},
-		{"proper value", []byte{0, 0, 0, 1, 10, 0, 0, 0}, []byte{10}, 8, false},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := parseBlob(tt.args)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("parseBlob() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("parseBlob() got = %v, want %v", got, tt.want)
-			}
-			if got1 != tt.want1 {
-				t.Errorf("parseBlob() got1 = %v, want %v", got1, tt.want1)
-			}
-		})
-	}
-}
+//func TestWriteTypeTags(t *testing.T) {
+//	for _, tt := range []struct {
+//		desc string
+//		msg  *Message
+//		tags string
+//		ok   bool
+//	}{
+//		{"addr_only", NewMessage("/"), ",", true},
+//		{"nil", NewMessage("/", nil), ",N", true},
+//		{"bool_true", NewMessage("/", true), ",T", true},
+//		{"bool_false", NewMessage("/", false), ",F", true},
+//		{"int32", NewMessage("/", int32(1)), ",i", true},
+//		{"int64", NewMessage("/", int64(2)), ",h", true},
+//		{"float32", NewMessage("/", float32(3.0)), ",f", true},
+//		{"float64", NewMessage("/", float64(4.0)), ",d", true},
+//		{"string", NewMessage("/", "5"), ",s", true},
+//		{"[]byte", NewMessage("/", []byte{'6'}), ",b", true},
+//		{"two_args", NewMessage("/", "123", int32(456)), ",si", true},
+//		{"invalid_msg", nil, "", false},
+//		{"invalid_arg", NewMessage("/foo/bar", 789), "", false},
+//	} {
+//		tags, err := writeTypeTags()
+//		if err != nil && tt.ok {
+//			t.Errorf("%s: TypeTags() unexpected error: %s", tt.desc, err)
+//			continue
+//		}
+//		if err == nil && !tt.ok {
+//			t.Errorf("%s: TypeTags() expected an error", tt.desc)
+//			continue
+//		}
+//		if !tt.ok {
+//			continue
+//		}
+//		if got, want := tags, tt.tags; got != want {
+//			t.Errorf("%s: TypeTags() = '%s', want = '%s'", tt.desc, got, want)
+//		}
+//	}
+//}

@@ -84,8 +84,9 @@ func writeTypeTags(elems []interface{}, b []byte) (int, error) {
 		b[n] = byte(s)
 		n++
 	}
+	n++
 
-	return n, nil
+	return n + padBytesNeeded(n), nil
 }
 
 // padBytesNeeded determines how many bytes are needed to fill up to the next 4

@@ -22,6 +22,7 @@ var (
 			return &b
 		},
 	}
+	empty = [MaxPacketSize]byte{}
 )
 
 // addressExists returns true if the OSC address `addr` is found in `handlers`.
