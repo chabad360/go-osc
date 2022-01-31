@@ -25,6 +25,8 @@ var _ Packet = (*Bundle)(nil)
 // MarshalBinary implements the encoding.BinaryMarshaler interface.
 func (b *Bundle) MarshalBinary() ([]byte, error) {
 	buf := bPool.Get().(*[]byte)
+	copy(*buf, empty[:])
+
 	// Add the '#bundle' string
 	n := writePaddedString("#bundle", (*buf)[:])
 

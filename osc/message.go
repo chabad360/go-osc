@@ -1,7 +1,6 @@
 package osc
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"unsafe"
@@ -48,67 +47,10 @@ func (m *Message) Match(addr string) bool {
 	return regexp.MatchString(addr)
 }
 
-// TypeTags returns the type tag string.
-func (m *Message) TypeTags() (string, error) {
-	if m == nil {
-		return "", fmt.Errorf("TypeTags: message is nil")
-	}
-
-	tags := make([]byte, 0, len(m.Arguments)+1)
-	tags = append(tags, ',')
-	for _, args := range m.Arguments {
-		s := ToTypeTag(args)
-		if s == 0 {
-			return "", fmt.Errorf("unsupported type: %T", args)
-		}
-		tags = append(tags, byte(s))
-	}
-
-	return *(*string)(unsafe.Pointer(&tags)), nil
-}
-
-// String implements the fmt.Stringer interface.
-func (m *Message) String() string {
-	if m == nil {
-		return ""
-	}
-
-	tags, _ := m.TypeTags()
-
-	strBuf := bufPool.Get().(*bytes.Buffer)
-	defer bufPool.Put(strBuf)
-	strBuf.Reset()
-
-	strBuf.WriteString(m.Address)
-	if len(tags) == 0 {
-		return strBuf.String()
-	}
-
-	strBuf.WriteByte(' ')
-	strBuf.WriteString(tags)
-
-	for _, arg := range m.Arguments {
-		switch arg := arg.(type) {
-		case bool, int32, int64, float32, float64, string:
-			fmt.Fprintf(strBuf, " %v", arg)
-
-		case nil:
-			strBuf.WriteString(" Nil")
-
-		case []byte:
-			strBuf.WriteString(" blob")
-
-		case Timetag:
-			fmt.Fprintf(strBuf, " %d", arg.TimeTag())
-		}
-	}
-
-	return strBuf.String()
-}
-
 // MarshalBinary implements the encoding.BinaryMarshaler interface.
 func (m *Message) MarshalBinary() ([]byte, error) {
 	buf := bPool.Get().(*[]byte)
+	copy(*buf, empty[:])
 
 	n := writePaddedString(m.Address, *buf)
 
@@ -131,12 +73,12 @@ func (m *Message) MarshalBinary() ([]byte, error) {
 		case int32:
 			binary.BigEndian.PutUint32((*buf)[n:], uint32(t))
 			n += bit32Size
-		case float32:
-			binary.BigEndian.PutUint32((*buf)[n:], *(*uint32)(unsafe.Pointer(&t)))
-			n += bit32Size
 		case int64:
 			binary.BigEndian.PutUint64((*buf)[n:], uint64(t))
 			n += bit64Size
+		case float32:
+			binary.BigEndian.PutUint32((*buf)[n:], *(*uint32)(unsafe.Pointer(&t)))
+			n += bit32Size
 		case float64:
 			binary.BigEndian.PutUint64((*buf)[n:], *(*uint64)(unsafe.Pointer(&t)))
 			n += bit64Size
@@ -214,7 +156,6 @@ func (m *Message) unmarshalBinary(data []byte) error {
 
 // parseArguments parses a []byte with OSC arguments and add them to the OSC message `msg`.
 func (m *Message) parseArguments(data []byte) error {
-	// parse the type tag string
 	typetags, n, err := parsePaddedString(data)
 	if err != nil {
 		return fmt.Errorf("parseArguments: %w", err)
@@ -227,7 +168,7 @@ func (m *Message) parseArguments(data []byte) error {
 
 	// If the typetag doesn't start with ',', it's not valid
 	if typetags[0] != ',' {
-		return fmt.Errorf("unsupported typetag string: %s", typetags)
+		return fmt.Errorf("bad typetag string: %s", typetags)
 	}
 
 	typetags = typetags[1:]
@@ -236,7 +177,7 @@ func (m *Message) parseArguments(data []byte) error {
 
 	for _, c := range typetags {
 		if len(data) < bit32Size {
-			return fmt.Errorf("parseArguments: not enough bits to read")
+			return fmt.Errorf("parseArguments: not enough bits to read: %v", data)
 		}
 		switch TypeTag(c) {
 		default:
@@ -248,7 +189,7 @@ func (m *Message) parseArguments(data []byte) error {
 
 		case Int64:
 			if len(data) < bit64Size {
-				return fmt.Errorf("readArguments: not enough bits to read")
+				return fmt.Errorf("readArguments: not enough bits to read: %v", data)
 			}
 			m.Arguments = append(m.Arguments, int64(binary.BigEndian.Uint64(data[:bit64Size])))
 			data = data[bit64Size:]
@@ -260,7 +201,7 @@ func (m *Message) parseArguments(data []byte) error {
 
 		case Float64:
 			if len(data) < bit64Size {
-				return fmt.Errorf("readArguments: not enough bits to read")
+				return fmt.Errorf("readArguments: not enough bits to read: %v", data)
 			}
 			f := binary.BigEndian.Uint64(data[:bit64Size])
 			m.Arguments = append(m.Arguments, *(*float64)(unsafe.Pointer(&f)))
@@ -284,7 +225,7 @@ func (m *Message) parseArguments(data []byte) error {
 
 		case TimeTag:
 			if len(data) < bit64Size {
-				return fmt.Errorf("readArguments: not enough bits to read")
+				return fmt.Errorf("readArguments: not enough bits to read: %v", data)
 			}
 			m.Arguments = append(m.Arguments, Timetag(binary.BigEndian.Uint64(data[:bit64Size])))
 			data = data[bit64Size:]

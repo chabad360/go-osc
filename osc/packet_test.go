@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestparsePacket(t *testing.T) {
+func TestParsePacket(t *testing.T) {
 	for _, tt := range []struct {
 		desc string
 		msg  string
@@ -56,7 +56,7 @@ func TestparsePacket(t *testing.T) {
 var temp = &Message{Address: "/composition/layers/1/clips/1/transport/position", Arguments: []interface{}{0.123456789, "hello world"}}
 var msg, _ = temp.MarshalBinary()
 
-func BenchmarkparsePacket(b *testing.B) {
+func BenchmarkParsePacket(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	var p Packet
