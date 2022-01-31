@@ -18,7 +18,8 @@ var (
 	}
 	bPool = sync.Pool{
 		New: func() interface{} {
-			return make([]byte, MaxPacketSize)
+			b := make([]byte, MaxPacketSize)
+			return &b
 		},
 	}
 )

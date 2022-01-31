@@ -108,12 +108,12 @@ func (m *Message) String() string {
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface.
 func (m *Message) MarshalBinary() ([]byte, error) {
-	buf := bPool.Get().([]byte)
+	buf := bPool.Get().(*[]byte)
 
-	n := writePaddedString(m.Address, buf)
+	n := writePaddedString(m.Address, *buf)
 
 	// Write the type tag string to the data buffer
-	nn, err := writeTypeTags(m.Arguments, buf[n:])
+	nn, err := writeTypeTags(m.Arguments, (*buf)[n:])
 	if err != nil {
 		return nil, err
 	}
@@ -129,32 +129,32 @@ func (m *Message) MarshalBinary() ([]byte, error) {
 		case bool, nil:
 			continue
 		case int32:
-			binary.BigEndian.PutUint32(buf[n:], uint32(t))
+			binary.BigEndian.PutUint32((*buf)[n:], uint32(t))
 			n += bit32Size
 		case float32:
-			binary.BigEndian.PutUint32(buf[n:], *(*uint32)(unsafe.Pointer(&t)))
+			binary.BigEndian.PutUint32((*buf)[n:], *(*uint32)(unsafe.Pointer(&t)))
 			n += bit32Size
 		case int64:
-			binary.BigEndian.PutUint64(buf[n:], uint64(t))
+			binary.BigEndian.PutUint64((*buf)[n:], uint64(t))
 			n += bit64Size
 		case float64:
-			binary.BigEndian.PutUint64(buf[n:], *(*uint64)(unsafe.Pointer(&t)))
+			binary.BigEndian.PutUint64((*buf)[n:], *(*uint64)(unsafe.Pointer(&t)))
 			n += bit64Size
 		case string:
-			n += writePaddedString(t, buf[n:])
+			n += writePaddedString(t, (*buf)[n:])
 		case []byte:
 			if len(t) > MaxPacketSize-n {
 				return nil, fmt.Errorf("MarshalBinary: blob makes packet too large")
 			}
-			n += writeBlob(t, buf[n:])
+			n += writeBlob(t, (*buf)[n:])
 		case Timetag:
-			binary.BigEndian.PutUint64(buf[n:], uint64(t))
+			binary.BigEndian.PutUint64((*buf)[n:], uint64(t))
 			n += bit64Size
 		}
 	}
 
 	b := make([]byte, n)
-	copy(b, buf)
+	copy(b, *buf)
 	bPool.Put(buf)
 
 	return b, nil

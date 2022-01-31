@@ -13,7 +13,7 @@ const (
 // Bundle represents an OSC bundle. It consists of the OSC-string "#bundle"
 // followed by an OSC Time Tag, followed by zero or more OSC bundle/message
 // elements. The OSC-timetag is a 64-bit fixed point time tag. See
-// http://opensoundcontrol.org/spec-1_0 for more information.
+// http://opensoundcontrol.org/spec-1_0.html for more information.
 type Bundle struct {
 	Timetag  Timetag
 	Elements []Packet
@@ -22,14 +22,14 @@ type Bundle struct {
 // Verify that Bundle implements the Packet interface.
 var _ Packet = (*Bundle)(nil)
 
-// MarshalBinary implements the encoding.BinaryMarshaler
+// MarshalBinary implements the encoding.BinaryMarshaler interface.
 func (b *Bundle) MarshalBinary() ([]byte, error) {
-	buf := [MaxPacketSize]byte{}
+	buf := bPool.Get().(*[]byte)
 	// Add the '#bundle' string
-	n := writePaddedString("#bundle", buf[:])
+	n := writePaddedString("#bundle", (*buf)[:])
 
 	// Add the time tag
-	binary.BigEndian.PutUint64(buf[n:bit64Size], uint64(b.Timetag))
+	binary.BigEndian.PutUint64((*buf)[n:bit64Size], uint64(b.Timetag))
 	n += bit64Size
 
 	// Process all Bundle elements
@@ -40,15 +40,15 @@ func (b *Bundle) MarshalBinary() ([]byte, error) {
 		}
 
 		// Write the size of the element
-		binary.BigEndian.PutUint32(buf[n:bit32Size], uint32(len(buf)))
+		binary.BigEndian.PutUint32((*buf)[n:bit32Size], uint32(len(bb)))
 		n += bit32Size
 
 		// Append the bundle
-		n += copy(buf[n:], bb)
+		n += copy((*buf)[n:], bb)
 	}
 
 	bb := make([]byte, n)
-	copy(bb, buf[:])
+	copy(bb, (*buf)[:])
 
 	return bb, nil
 }
