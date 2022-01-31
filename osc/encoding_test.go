@@ -1,7 +1,6 @@
 package osc
 
 import (
-	"bytes"
 	"errors"
 	"io"
 	"reflect"
@@ -36,12 +35,11 @@ func TestparsePaddedString(t *testing.T) {
 }
 
 func TestWritePaddedString(t *testing.T) {
-	buf := []byte{}
-	bytesBuffer := bytes.NewBuffer(buf)
+	buf := make([]byte, 12)
 	testString := "testString"
 	expectedNumberOfWrittenBytes := len(testString) + padBytesNeeded(len(testString))
 
-	if n := writePaddedString(testString, bytesBuffer); n != expectedNumberOfWrittenBytes {
+	if n := writePaddedString(testString, buf); n != expectedNumberOfWrittenBytes {
 		t.Errorf("Expected number of written bytes should be \"%d\" and is \"%d\"", expectedNumberOfWrittenBytes, n)
 	}
 }

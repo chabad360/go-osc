@@ -107,81 +107,57 @@ func (m *Message) String() string {
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface.
-func (m *Message) MarshalBinary() (b []byte, err error) {
-	// We can start with the OSC address and add it to the buffer
-	data := bufPool.Get().(*bytes.Buffer)
-	defer bufPool.Put(data)
-	data.Reset()
+func (m *Message) MarshalBinary() ([]byte, error) {
+	buf := bPool.Get().([]byte)
 
-	if err = m.LightMarshalBinary(data); err != nil {
+	n := writePaddedString(m.Address, buf)
+
+	// Write the type tag string to the data buffer
+	nn, err := writeTypeTags(m.Arguments, buf[n:])
+	if err != nil {
 		return nil, err
 	}
-	return append(b, data.Bytes()...), nil
-}
 
-func (m *Message) LightMarshalBinary(data *bytes.Buffer) error {
-	b := bufPool.Get().(*bytes.Buffer)
-	defer bufPool.Put(b)
-	b.Reset()
+	n += nn
 
 	// Process the type tags and collect all arguments
 	for _, arg := range m.Arguments {
 		switch t := arg.(type) {
 		default:
-			return fmt.Errorf("LightMarshalBinary: unsupported type: %T", t)
+			return nil, fmt.Errorf("MarshalBinary: unsupported type: %T", t)
 
 		case bool, nil:
 			continue
 		case int32:
-			buf := make([]byte, bit32Size)
-			binary.BigEndian.PutUint32(buf, uint32(t))
-			b.Write(buf)
+			binary.BigEndian.PutUint32(buf[n:], uint32(t))
+			n += bit32Size
 		case float32:
-			buf := make([]byte, bit32Size)
-			binary.BigEndian.PutUint32(buf, *(*uint32)(unsafe.Pointer(&t)))
-			b.Write(buf)
+			binary.BigEndian.PutUint32(buf[n:], *(*uint32)(unsafe.Pointer(&t)))
+			n += bit32Size
 		case int64:
-			buf := make([]byte, bit64Size)
-			binary.BigEndian.PutUint64(buf, uint64(t))
-			b.Write(buf)
+			binary.BigEndian.PutUint64(buf[n:], uint64(t))
+			n += bit64Size
 		case float64:
-			buf := make([]byte, bit64Size)
-			binary.BigEndian.PutUint64(buf, *(*uint64)(unsafe.Pointer(&t)))
-			b.Write(buf)
+			binary.BigEndian.PutUint64(buf[n:], *(*uint64)(unsafe.Pointer(&t)))
+			n += bit64Size
 		case string:
-			writePaddedString(t, b)
+			n += writePaddedString(t, buf[n:])
 		case []byte:
-			if _, err := writeBlob(t, b); err != nil {
-				return err
+			if len(t) > MaxPacketSize-n {
+				return nil, fmt.Errorf("MarshalBinary: blob makes packet too large")
 			}
+			n += writeBlob(t, buf[n:])
 		case Timetag:
-			buf := make([]byte, bit64Size)
-			binary.BigEndian.PutUint64(buf, uint64(t))
-			b.Write(buf)
+			binary.BigEndian.PutUint64(buf[n:], uint64(t))
+			n += bit64Size
 		}
 	}
 
-	if b.Len() >= MaxPacketSize {
-		return fmt.Errorf("LightMarshalBinary: payload too large: %d", b.Len())
-	}
+	b := make([]byte, n)
+	copy(b, buf)
+	bPool.Put(buf)
 
-	writePaddedString(m.Address, data)
-
-	// Write the type tag string to the data buffer
-	typetags, err := m.TypeTags()
-	if err != nil {
-		return err
-	}
-	writePaddedString(typetags, data)
-
-	// Write the payload (OSC arguments) to the data buffer
-	data.Write(b.Bytes())
-
-	if data.Len() >= MaxPacketSize {
-		return fmt.Errorf("LightMarshalBinary: packet too large: %d", data.Len())
-	}
-
-	return nil
+	return b, nil
 }
 
 // NewMessageFromData returns a new OSC message created from the parsed data.
