@@ -176,14 +176,14 @@ func (m *Message) parseArguments(data []byte) error {
 	m.Arguments = make([]interface{}, 0, len(typetags))
 
 	for _, c := range typetags {
-		if len(data) < bit32Size {
-			return fmt.Errorf("parseArguments: not enough bits to read: %v", data)
-		}
 		switch TypeTag(c) {
 		default:
 			return fmt.Errorf("unsupported typetag: %c", c)
 
 		case Int32:
+			if len(data) < bit32Size {
+				return fmt.Errorf("parseArguments: not enough bits to read: %v", data)
+			}
 			m.Arguments = append(m.Arguments, int32(binary.BigEndian.Uint32(data[:bit32Size])))
 			data = data[bit32Size:]
 
@@ -195,6 +195,9 @@ func (m *Message) parseArguments(data []byte) error {
 			data = data[bit64Size:]
 
 		case Float32:
+			if len(data) < bit32Size {
+				return fmt.Errorf("parseArguments: not enough bits to read: %v", data)
+			}
 			b := binary.BigEndian.Uint32(data[:bit32Size])
 			m.Arguments = append(m.Arguments, *(*float32)(unsafe.Pointer(&b)))
 			data = data[bit32Size:]
@@ -208,6 +211,9 @@ func (m *Message) parseArguments(data []byte) error {
 			data = data[bit64Size:]
 
 		case String:
+			if len(data) < bit32Size {
+				return fmt.Errorf("parseArguments: not enough bits to read: %v", data)
+			}
 			str, n, err := parsePaddedString(data)
 			if err != nil {
 				return fmt.Errorf("readArguments: %w", err)
@@ -216,6 +222,9 @@ func (m *Message) parseArguments(data []byte) error {
 			data = data[n:]
 
 		case Blob:
+			if len(data) < bit64Size {
+				return fmt.Errorf("parseArguments: not enough bits to read: %v", data)
+			}
 			buf, n, err := parseBlob(data)
 			if err != nil {
 				return fmt.Errorf("readArguments: %w", err)

@@ -74,13 +74,13 @@ func newBundleFromData(data []byte) (b *Bundle, err error) {
 }
 
 // NewBundleWithTime returns an OSC Bundle. Use this function to create a new OSC Bundle.
-func NewBundleWithTime(time time.Time) *Bundle {
-	return &Bundle{Timetag: NewTimetagFromTime(time)}
+func NewBundleWithTime(time time.Time, elems ...Packet) *Bundle {
+	return &Bundle{Timetag: NewTimetagFromTime(time), Elements: elems}
 }
 
 // NewBundle returns an empty OSC Bundle.
-func NewBundle() *Bundle {
-	return &Bundle{Timetag: NewTimetag()}
+func NewBundle(elems ...Packet) *Bundle {
+	return &Bundle{Timetag: NewTimetag(), Elements: elems}
 }
 
 // Append appends an OSC bundle or OSC message to the bundle.
@@ -110,7 +110,7 @@ func (b *Bundle) unmarshalBinary(data []byte) error {
 		return fmt.Errorf("UnmarshalBinary: data isn't padded properly")
 	}
 
-	if len(data) < 20 {
+	if len(data) < 16 {
 		return fmt.Errorf("UnmarshalBinary: bundle is too short")
 	}
 

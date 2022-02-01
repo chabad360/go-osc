@@ -1,7 +1,6 @@
 package osc
 
 import (
-	"encoding/binary"
 	"time"
 )
 
@@ -19,12 +18,12 @@ type Timetag uint64
 
 // NewTimetag returns a new OSC time tag object with the time set to now.
 func NewTimetag() Timetag {
-	return Timetag(timeToTimetag(time.Now()))
+	return timeToTimetag(time.Now())
 }
 
 // NewTimetagFromTime returns a new OSC time tag object from a time.Time.
 func NewTimetagFromTime(timeStamp time.Time) Timetag {
-	return Timetag(timeToTimetag(timeStamp))
+	return timeToTimetag(timeStamp)
 }
 
 // Time returns the time.
@@ -44,21 +43,9 @@ func (t Timetag) SecondsSinceEpoch() uint32 {
 	return uint32(t >> 32)
 }
 
-// TimeTag returns the time tag value
-func (t Timetag) TimeTag() uint64 {
-	return uint64(t)
-}
-
-// MarshalBinary converts the OSC time tag to a byte array.
-func (t Timetag) MarshalBinary() (b []byte, err error) {
-	b = make([]byte, bit64Size)
-	binary.BigEndian.PutUint64(b, uint64(t))
-	return
-}
-
 // SetTime sets the value of the OSC time tag.
 func (t *Timetag) SetTime(time time.Time) {
-	*t = Timetag(timeToTimetag(time))
+	*t = timeToTimetag(time)
 }
 
 // ExpiresIn calculates the number of seconds until the current time is the
@@ -72,7 +59,7 @@ func (t Timetag) ExpiresIn() time.Duration {
 	tt := timetagToTime(t)
 	seconds := time.Until(tt)
 
-	if seconds <= 0 {
+	if seconds < 0 {
 		return 0
 	}
 
@@ -89,9 +76,8 @@ func (t Timetag) ExpiresIn() time.Duration {
 //
 // The time tag value consisting of 63 zero bits followed by a one in the least
 // significant bit is a special case meaning "immediately."
-func timeToTimetag(t time.Time) (timetag uint64) {
-	timetag = uint64((secondsFrom1900To1970 + t.Unix()) << 32)
-	return timetag + uint64(t.Nanosecond())
+func timeToTimetag(t time.Time) (timetag Timetag) {
+	return (Timetag(secondsFrom1900To1970+t.Unix()) << 32) + Timetag(t.Nanosecond())
 }
 
 // timetagToTime converts the given timetag to a time object.
