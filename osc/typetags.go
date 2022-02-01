@@ -10,7 +10,7 @@ const (
 	Float64 TypeTag = 'd'
 	Blob    TypeTag = 'b'
 	TimeTag TypeTag = 't'
-	Nil     TypeTag = 'n'
+	Nil     TypeTag = 'N'
 	True    TypeTag = 'T'
 	False   TypeTag = 'F'
 )
@@ -43,4 +43,13 @@ func ToTypeTag(arg interface{}) TypeTag {
 	default:
 		return 0
 	}
+}
+
+func GetTypeTag(i []interface{}) (string, error) {
+	tt := make([]byte, len(i)+1)
+	_, err := writeTypeTags(i, tt)
+	if err != nil {
+		return "", err
+	}
+	return string(tt), nil
 }
