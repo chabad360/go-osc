@@ -5,54 +5,6 @@ import (
 	"testing"
 )
 
-func TestParsePacket(t *testing.T) {
-	for _, tt := range []struct {
-		desc string
-		msg  string
-		pkt  Packet
-		ok   bool
-	}{
-		{"no_args",
-			"/a/b/c" + nulls(2) + "," + nulls(3),
-			makePacket("/a/b/c", nil),
-			true},
-		{"string_arg",
-			"/d/e/f" + nulls(2) + ",s" + nulls(2) + "foo" + nulls(1),
-			makePacket("/d/e/f", []string{"foo"}),
-			true},
-		{"empty", "", nil, false},
-		{"badInt", "/a" + nulls(2) + ",h" + nulls(2) + nulls(4), nil, false},
-		{"designed",
-			string(msg), temp, true},
-	} {
-		pkt, err := parsePacket([]byte(tt.msg))
-		if err != nil && tt.ok {
-			t.Fatalf("%s: parsePacket() returned unexpected error; %s", tt.desc, err)
-		}
-		if err == nil && !tt.ok {
-			t.Errorf("%s: parsePacket() expected error", tt.desc)
-		}
-		if !tt.ok {
-			continue
-		}
-
-		pktBytes, err := pkt.MarshalBinary()
-		if err != nil {
-			t.Errorf("%s: failure converting pkt to byte array; %s", tt.desc, err)
-			continue
-		}
-		ttpktBytes, err := tt.pkt.MarshalBinary()
-		if err != nil {
-			t.Errorf("%s: failure converting tt.pkt to byte array; %s", tt.desc, err)
-			continue
-		}
-		if !reflect.DeepEqual(pktBytes, ttpktBytes) {
-			t.Errorf("%s: parsePacket() as bytes = '%s', want = '%s'", tt.desc, pktBytes, ttpktBytes)
-			continue
-		}
-	}
-}
-
 var temp = &Message{Address: "/composition/layers/1/clips/1/transport/position", Arguments: []interface{}{0.123456789, "hello world"}}
 var msg, _ = temp.MarshalBinary()
 
@@ -64,4 +16,22 @@ func BenchmarkParsePacket(b *testing.B) {
 		p, _ = parsePacket(msg)
 	}
 	result = p
+}
+
+func TestParsePacket(t *testing.T) {
+	tests := []testCase{}
+	tests = append(tests, messageTestCases...)
+	tests = append(tests, bundleTestCases...)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParsePacket(tt.raw)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParsePacket() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.obj) {
+				t.Errorf("ParsePacket() got = %v, want %v", got, tt.obj)
+			}
+		})
+	}
 }

@@ -9,11 +9,6 @@ const (
 )
 
 // Timetag represents an OSC Time Tag.
-// An OSC Time Tag is defined as follows:
-// Time tags are represented by a 64 bit fixed point number. The first 32 bits
-// specify the number of seconds since midnight on January 1, 1900, and the
-// last 32 bits specify fractional parts of a second to a precision of about
-// 200 picoseconds. This is the representation used by Internet NTP timestamps.
 type Timetag uint64
 
 // NewTimetag returns a new OSC time tag object with the time set to now.
@@ -67,15 +62,6 @@ func (t Timetag) ExpiresIn() time.Duration {
 }
 
 // timeToTimetag converts the given time to an OSC time tag.
-//
-// An OSC time tag is defined as follows:
-// Time tags are represented by a 64 bit fixed point number. The first 32 bits
-// specify the number of seconds since midnight on January 1, 1900, and the
-// last 32 bits specify fractional parts of a second to a precision of about
-// 200 picoseconds. This is the representation used by Internet NTP timestamps.
-//
-// The time tag value consisting of 63 zero bits followed by a one in the least
-// significant bit is a special case meaning "immediately."
 func timeToTimetag(t time.Time) (timetag Timetag) {
 	return (Timetag(secondsFrom1900To1970+t.Unix()) << 32) + Timetag(t.Nanosecond())
 }
