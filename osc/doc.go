@@ -13,9 +13,9 @@
 //and other multimedia devices.
 //
 //Features:
-//- Supports OSC messages with 'i' (Int32), 'f' (Float32),
-// 's' (string), 'b' (blob / binary data), 'h' (Int64), 't' (OSC timetag),
-//  'd' (Double/int64), 'T' (True), 'F' (False), 'N' (Nil) types.
+//- Supports OSC messages with 'i' (TypeInt32), 'f' (TypeFloat32),
+// 's' (string), 'b' (blob / binary data), 'h' (TypeInt64), 't' (OSC timetag),
+//  'd' (Double/int64), 'T' (TypeTrue), 'F' (TypeFalse), 'N' (TypeNil) types.
 //- OSC bundles, including timetags
 //- Support for OSC address pattern including '*', '?', '{,}' and '[]' wildcards
 //
@@ -33,7 +33,7 @@
 //OSC packets come in two flavors:
 //
 //OSC Messages: An OSC message consists of an OSC address pattern, followed
-//by an OSC Type Tag String, and finally by zero or more OSC arguments.
+//by an OSC Type Tag TypeString, and finally by zero or more OSC arguments.
 //
 //OSC Bundles: An OSC Bundle consists of the string "#bundle" followed
 //by an OSC Time Tag, followed by zero or more OSC bundle elements. Each bundle
@@ -45,16 +45,16 @@
 //always be a multiple of 4. The contents are either an OSC Message or an
 //OSC Bundle.
 //
-//The following argument types are supported: 'i' (Int32), 'f' (Float32),
-//'s' (string), 'b' (blob / binary data), 'h' (Int64), 't' (OSC timetag),
-//'d' (Double/int64), 'T' (True), 'F' (False), 'N' (Nil).
+//The following argument types are supported: 'i' (TypeInt32), 'f' (TypeFloat32),
+//'s' (string), 'b' (blob / binary data), 'h' (TypeInt64), 't' (OSC timetag),
+//'d' (Double/int64), 'T' (TypeTrue), 'F' (TypeFalse), 'N' (TypeNil).
 //
-//go-osc supports the following OSC address patterns:
-//- '*', '?', '{,}' and '[]' wildcards.
+// go-osc supports the following OSC address patterns:
+//  - '*', '?', '{,}' and '[]' wildcards.
 //
-//Usage
+// Usage
 //
-//OSC client example:
+// OSC client example:
 //
 //    client := osc.NewClient("localhost", 8765)
 //    msg := osc.NewMessage("/osc/address")
@@ -63,7 +63,7 @@
 //    msg.Append("hello")
 //    client.Send(msg)
 //
-//OSC server example:
+// OSC server example:
 //
 //    addr := "127.0.0.1:8765"
 //    d := osc.NewStandardDispatcher()

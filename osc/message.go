@@ -6,8 +6,7 @@ import (
 	"unsafe"
 )
 
-// Message represents a single OSC message. An OSC message consists of an OSC
-// address pattern and zero or more arguments.
+// Message represents a single OSC Message.
 type Message struct {
 	Address   string
 	Arguments []interface{}
@@ -18,18 +17,22 @@ var _ Packet = (*Message)(nil)
 
 func (m *Message) Clear() {
 	m.Address = ""
-	m.Arguments = m.Arguments[:0]
+	m.Arguments = nil
 }
 
-// NewMessage returns a new Message. The address parameter is the OSC address.
+// NewMessage returns a new Message.
+// addr is the OSC address, args are the OSC to add to message.
 func NewMessage(addr string, args ...interface{}) *Message {
+	if len(args) == 0 {
+		return &Message{Address: addr, Arguments: []interface{}{}}
+	}
 	return &Message{Address: addr, Arguments: args}
 }
 
 // Append appends the given arguments to the arguments list.
 func (m *Message) Append(args ...interface{}) error {
 	for _, a := range args {
-		if t := ToTypeTag(a); t == 0 {
+		if t := ToTypeTag(a); t == TypeInvalid {
 			return fmt.Errorf("unsupported type: %T", a)
 		}
 	}
@@ -37,8 +40,7 @@ func (m *Message) Append(args ...interface{}) error {
 	return nil
 }
 
-// Match returns true, if the OSC address pattern of the OSC Message matches the given
-// address. The match is case sensitive!
+// Match returns true, if the OSC address pattern matches addr. The match is case-sensitive!
 func (m *Message) Match(addr string) bool {
 	regexp, err := getRegEx(m.Address)
 	if err != nil {
@@ -180,21 +182,21 @@ func (m *Message) parseArguments(data []byte) error {
 		default:
 			return fmt.Errorf("unsupported typetag: %c", c)
 
-		case Int32:
+		case TypeInt32:
 			if len(data) < bit32Size {
 				return fmt.Errorf("parseArguments: not enough bits to read: %v", data)
 			}
 			m.Arguments = append(m.Arguments, int32(binary.BigEndian.Uint32(data[:bit32Size])))
 			data = data[bit32Size:]
 
-		case Int64:
+		case TypeInt64:
 			if len(data) < bit64Size {
 				return fmt.Errorf("readArguments: not enough bits to read: %v", data)
 			}
 			m.Arguments = append(m.Arguments, int64(binary.BigEndian.Uint64(data[:bit64Size])))
 			data = data[bit64Size:]
 
-		case Float32:
+		case TypeFloat32:
 			if len(data) < bit32Size {
 				return fmt.Errorf("parseArguments: not enough bits to read: %v", data)
 			}
@@ -202,7 +204,7 @@ func (m *Message) parseArguments(data []byte) error {
 			m.Arguments = append(m.Arguments, *(*float32)(unsafe.Pointer(&b)))
 			data = data[bit32Size:]
 
-		case Float64:
+		case TypeFloat64:
 			if len(data) < bit64Size {
 				return fmt.Errorf("readArguments: not enough bits to read: %v", data)
 			}
@@ -210,7 +212,7 @@ func (m *Message) parseArguments(data []byte) error {
 			m.Arguments = append(m.Arguments, *(*float64)(unsafe.Pointer(&f)))
 			data = data[bit64Size:]
 
-		case String:
+		case TypeString:
 			if len(data) < bit32Size {
 				return fmt.Errorf("parseArguments: not enough bits to read: %v", data)
 			}
@@ -221,7 +223,7 @@ func (m *Message) parseArguments(data []byte) error {
 			m.Arguments = append(m.Arguments, str)
 			data = data[n:]
 
-		case Blob:
+		case TypeBlob:
 			if len(data) < bit64Size {
 				return fmt.Errorf("parseArguments: not enough bits to read: %v", data)
 			}
@@ -232,20 +234,20 @@ func (m *Message) parseArguments(data []byte) error {
 			m.Arguments = append(m.Arguments, buf)
 			data = data[n:]
 
-		case TimeTag:
+		case TypeTimeTag:
 			if len(data) < bit64Size {
 				return fmt.Errorf("readArguments: not enough bits to read: %v", data)
 			}
 			m.Arguments = append(m.Arguments, Timetag(binary.BigEndian.Uint64(data[:bit64Size])))
 			data = data[bit64Size:]
 
-		case Nil:
+		case TypeNil:
 			m.Arguments = append(m.Arguments, nil)
 
-		case True:
+		case TypeTrue:
 			m.Arguments = append(m.Arguments, true)
 
-		case False:
+		case TypeFalse:
 			m.Arguments = append(m.Arguments, false)
 		}
 	}

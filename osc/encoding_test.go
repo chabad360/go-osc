@@ -110,41 +110,33 @@ func TestPadBytesNeeded(t *testing.T) {
 	}
 }
 
-//func TestWriteTypeTags(t *testing.T) {
-//	for _, tt := range []struct {
-//		desc string
-//		msg  *Message
-//		tags string
-//		ok   bool
-//	}{
-//		{"addr_only", NewMessage("/"), ",", true},
-//		{"nil", NewMessage("/", nil), ",N", true},
-//		{"bool_true", NewMessage("/", true), ",T", true},
-//		{"bool_false", NewMessage("/", false), ",F", true},
-//		{"int32", NewMessage("/", int32(1)), ",i", true},
-//		{"int64", NewMessage("/", int64(2)), ",h", true},
-//		{"float32", NewMessage("/", float32(3.0)), ",f", true},
-//		{"float64", NewMessage("/", float64(4.0)), ",d", true},
-//		{"string", NewMessage("/", "5"), ",s", true},
-//		{"[]byte", NewMessage("/", []byte{'6'}), ",b", true},
-//		{"two_args", NewMessage("/", "123", int32(456)), ",si", true},
-//		{"invalid_msg", nil, "", false},
-//		{"invalid_arg", NewMessage("/foo/bar", 789), "", false},
-//	} {
-//		tags, err := writeTypeTags()
-//		if err != nil && tt.ok {
-//			t.Errorf("%s: TypeTags() unexpected error: %s", tt.desc, err)
-//			continue
-//		}
-//		if err == nil && !tt.ok {
-//			t.Errorf("%s: TypeTags() expected an error", tt.desc)
-//			continue
-//		}
-//		if !tt.ok {
-//			continue
-//		}
-//		if got, want := tags, tt.tags; got != want {
-//			t.Errorf("%s: TypeTags() = '%s', want = '%s'", tt.desc, got, want)
-//		}
-//	}
-//}
+func Test_writeTypeTags(t *testing.T) {
+	tests := []struct {
+		name    string
+		elems   []interface{}
+		want    int
+		want2   []byte
+		wantErr bool
+	}{
+		{"string", []interface{}{"hello"}, 4, append([]byte(",s"), 0, 0), false},
+		{"nil_True_False", []interface{}{nil, true, false}, 8, append([]byte(",NTF"), 0, 0, 0, 0), false},
+		{"invalid_type", []interface{}{123}, 1, []byte{','}, true},
+		{"empty", []interface{}{}, 4, []byte{',', 0, 0, 0}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := make([]byte, tt.want)
+			got, err := writeTypeTags(tt.elems, b)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("writeTypeTags() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("writeTypeTags() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(b, tt.want2) {
+				t.Errorf("writeTypeTags() result = %s, want %s", b, tt.want2)
+			}
+		})
+	}
+}

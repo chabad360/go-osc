@@ -3,48 +3,50 @@ package osc
 type TypeTag rune
 
 const (
-	String  TypeTag = 's'
-	Int32   TypeTag = 'i'
-	Int64   TypeTag = 'h'
-	Float32 TypeTag = 'f'
-	Float64 TypeTag = 'd'
-	Blob    TypeTag = 'b'
-	TimeTag TypeTag = 't'
-	Nil     TypeTag = 'N'
-	True    TypeTag = 'T'
-	False   TypeTag = 'F'
+	TypeString  TypeTag = 's'
+	TypeInt32   TypeTag = 'i'
+	TypeInt64   TypeTag = 'h'
+	TypeFloat32 TypeTag = 'f'
+	TypeFloat64 TypeTag = 'd'
+	TypeBlob    TypeTag = 'b'
+	TypeTimeTag TypeTag = 't'
+	TypeNil     TypeTag = 'N'
+	TypeTrue    TypeTag = 'T'
+	TypeFalse   TypeTag = 'F'
+	TypeInvalid TypeTag = 0
 )
 
-// ToTypeTag returns the OSC type tag for the given argument.
-// Returns Null if the type is unsupported.
+// ToTypeTag returns the OSC TypeTag for the given argument.
+// Returns TypeInvalid if the argument type is unsupported.
 func ToTypeTag(arg interface{}) TypeTag {
 	switch t := arg.(type) {
 	case bool:
 		if t {
-			return True
+			return TypeTrue
 		}
-		return False
+		return TypeFalse
 	case nil:
-		return Nil
+		return TypeNil
 	case int32:
-		return Int32
+		return TypeInt32
 	case float32:
-		return Float32
+		return TypeFloat32
 	case string:
-		return String
+		return TypeString
 	case []byte:
-		return Blob
+		return TypeBlob
 	case int64:
-		return Int64
+		return TypeInt64
 	case float64:
-		return Float64
+		return TypeFloat64
 	case Timetag:
-		return TimeTag
+		return TypeTimeTag
 	default:
-		return 0
+		return TypeInvalid
 	}
 }
 
+// GetTypeTag returns the OSC TypeTag string for the given slice.
 func GetTypeTag(i []interface{}) (string, error) {
 	tt := make([]byte, len(i)+1)
 	_, err := writeTypeTags(i, tt)

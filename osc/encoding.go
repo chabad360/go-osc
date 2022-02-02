@@ -18,8 +18,6 @@ const (
 	bit64Size     int = 8
 )
 
-var padBytes = []byte{0, 0, 0, 0}
-
 // parseBlob parses an OSC blob from the blob byte array. Padding bytes are
 // removed from the reader and not returned.
 func parseBlob(data []byte) ([]byte, int, error) {
@@ -67,19 +65,17 @@ func writePaddedString(str string, b []byte) int {
 	n := copy(b, str)
 	n++
 
-	// Calculate and add the padding bytes needed
-	//n += copy(b[n:], padBytes[:padBytesNeeded(n)])
-
 	return n + padBytesNeeded(n)
 }
 
+// writeTypeTags writes a typetag string to b.
 func writeTypeTags(elems []interface{}, b []byte) (int, error) {
 	b[0] = ','
 	n := 1
 	for _, elem := range elems {
 		s := ToTypeTag(elem)
-		if s == 0 {
-			return 0, fmt.Errorf("writeTypeTags: unsupported type: %T", elem)
+		if s == TypeInvalid {
+			return n, fmt.Errorf("writeTypeTags: unsupported type: %T", elem)
 		}
 		b[n] = byte(s)
 		n++

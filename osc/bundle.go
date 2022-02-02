@@ -10,10 +10,7 @@ const (
 	bundleTagString = "#bundle"
 )
 
-// Bundle represents an OSC bundle. It consists of the OSC-string "#bundle"
-// followed by an OSC Time Tag, followed by zero or more OSC bundle/message
-// elements. The OSC-timetag is a 64-bit fixed point time tag. See
-// http://opensoundcontrol.org/spec-1_0.html for more information.
+// Bundle represents an OSC Bundle.
 type Bundle struct {
 	Timetag  Timetag
 	Elements []Packet
@@ -28,10 +25,10 @@ func (b *Bundle) MarshalBinary() ([]byte, error) {
 	copy(*buf, empty[:])
 
 	// Add the '#bundle' string
-	n := writePaddedString("#bundle", (*buf)[:])
+	n := writePaddedString("#bundle", *buf)
 
 	// Add the time tag
-	binary.BigEndian.PutUint64((*buf)[n:bit64Size], uint64(b.Timetag))
+	binary.BigEndian.PutUint64((*buf)[n:n+bit64Size], uint64(b.Timetag))
 	n += bit64Size
 
 	// Process all Bundle elements
@@ -42,7 +39,7 @@ func (b *Bundle) MarshalBinary() ([]byte, error) {
 		}
 
 		// Write the size of the element
-		binary.BigEndian.PutUint32((*buf)[n:bit32Size], uint32(len(bb)))
+		binary.BigEndian.PutUint32((*buf)[n:n+bit32Size], uint32(len(bb)))
 		n += bit32Size
 
 		// Append the bundle
@@ -50,7 +47,7 @@ func (b *Bundle) MarshalBinary() ([]byte, error) {
 	}
 
 	bb := make([]byte, n)
-	copy(bb, (*buf)[:])
+	copy(bb, *buf)
 
 	return bb, nil
 }
@@ -78,7 +75,7 @@ func NewBundleWithTime(time time.Time, elems ...Packet) *Bundle {
 	return &Bundle{Timetag: NewTimetagFromTime(time), Elements: elems}
 }
 
-// NewBundle returns an empty OSC Bundle.
+// NewBundle returns a new Bundle with elems as the elements.
 func NewBundle(elems ...Packet) *Bundle {
 	return &Bundle{Timetag: NewTimetag(), Elements: elems}
 }
@@ -109,6 +106,7 @@ func (b *Bundle) unmarshalBinary(data []byte) error {
 	if (len(data) % bit32Size) != 0 {
 		return fmt.Errorf("UnmarshalBinary: data isn't padded properly")
 	}
+	c := len(data)
 
 	if len(data) < 16 {
 		return fmt.Errorf("UnmarshalBinary: bundle is too short")
@@ -134,8 +132,9 @@ func (b *Bundle) unmarshalBinary(data []byte) error {
 	for len(data) > 0 {
 		// Read the size of the bundle element
 		length := int(binary.BigEndian.Uint32(data[:bit32Size]))
-		if len(data) < length {
-			return fmt.Errorf("invalid bundle element length: %d", length)
+		if len(data) < int(length) {
+			return fmt.Errorf("invalid bundle element length: %d, %#v, %d", length, data[:bit32Size], c-len(data))
+			//return nil
 		}
 		data = data[bit32Size:]
 
