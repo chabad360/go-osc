@@ -21,7 +21,8 @@ var _ Packet = (*Bundle)(nil)
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface.
 func (b *Bundle) MarshalBinary() ([]byte, error) {
-	buf := bPool.Get().(*[]byte)
+	buf := bufPool.Get().(*[]byte)
+	defer bufPool.Put(buf)
 	copy(*buf, empty[:])
 
 	// Add the '#bundle' string
@@ -132,9 +133,8 @@ func (b *Bundle) unmarshalBinary(data []byte) error {
 	for len(data) > 0 {
 		// Read the size of the bundle element
 		length := int(binary.BigEndian.Uint32(data[:bit32Size]))
-		if len(data) < int(length) {
+		if len(data) < length {
 			return fmt.Errorf("invalid bundle element length: %d, %#v, %d", length, data[:bit32Size], c-len(data))
-			//return nil
 		}
 		data = data[bit32Size:]
 

@@ -1,22 +1,20 @@
 package osc
 
 import (
-	"bytes"
-	"io"
+	"fmt"
 	"net"
+	"runtime"
 	"time"
 )
 
-// Server represents an OSC server. The server listens on Address and Port for
-// incoming OSC packets and bundles.
+// Server represents an OSC server. The server listens on Address and Port for incoming OSC packets and bundles.
 type Server struct {
 	Addr        string
 	Dispatcher  Dispatcher
 	ReadTimeout time.Duration
 }
 
-// ListenAndServe retrieves incoming OSC packets and dispatches the retrieved
-// OSC packets.
+// ListenAndServe retrieves incoming OSC packets and dispatches the retrieved OSC packets.
 func (s *Server) ListenAndServe() error {
 	if s.Dispatcher == nil {
 		s.Dispatcher = NewStandardDispatcher()
@@ -31,12 +29,12 @@ func (s *Server) ListenAndServe() error {
 	return s.Serve(ln)
 }
 
-// Serve retrieves incoming OSC packets from the given connection and dispatches
-// retrieved OSC packets. If something goes wrong an error is returned.
+// Serve retrieves incoming OSC packets from the given connection and dispatches retrieved OSC packets.
+// If something goes wrong an error is returned.
 func (s *Server) Serve(c net.PacketConn) error {
 	var tempDelay time.Duration
 	for {
-		msg, err := s.readFromConnection(c)
+		msg, addr, err := s.readFromConnection(c)
 		if err != nil {
 			if ne, ok := err.(net.Error); ok && ne.Temporary() {
 				if tempDelay == 0 {
@@ -49,46 +47,50 @@ func (s *Server) Serve(c net.PacketConn) error {
 				}
 				time.Sleep(tempDelay)
 				continue
+			} else if !ok {
+				continue // TODO: allow logging of packet errors
 			}
 			return err
 		}
 		tempDelay = 0
-		go s.Dispatcher.Dispatch(msg)
+		go s.serve(msg, addr)
 	}
+}
+
+func (s *Server) serve(m Packet, a net.Addr) {
+	defer func() {
+		if err := recover(); err != nil {
+			buf := make([]byte, MaxPacketSize+29)
+			buf = buf[:runtime.Stack(buf, false)]
+			fmt.Printf("osc: panic handling from %s: %v\n%s\n", a, err, buf) // TODO: figure out a better logger
+		}
+	}()
+	s.Dispatcher.Dispatch(m)
 }
 
 // ReceivePacket listens for incoming OSC packets and returns the packet if one is received.
-func (s *Server) ReceivePacket(c net.PacketConn) (Packet, error) {
+func (s *Server) ReceivePacket(c net.PacketConn) (Packet, net.Addr, error) {
 	return s.readFromConnection(c)
 }
 
-type eofReader struct {
-	net.PacketConn
-}
-
-func (g eofReader) Read(buf []byte) (int, error) {
-	n, _, err := g.ReadFrom(buf)
-	if err == nil {
-		return n, io.EOF
-	}
-	return n, err
-}
-
 // readFromConnection retrieves OSC packets.
-func (s *Server) readFromConnection(c net.PacketConn) (Packet, error) {
+func (s *Server) readFromConnection(c net.PacketConn) (Packet, net.Addr, error) {
 	if s.ReadTimeout != 0 {
 		if err := c.SetReadDeadline(time.Now().Add(s.ReadTimeout)); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
-	b := bufPool.Get().(*bytes.Buffer)
+	b := bufPool.Get().(*[]byte)
 	defer bufPool.Put(b)
-	b.Reset()
-	_, err := b.ReadFrom(eofReader{c})
-	if err != nil {
-		return nil, err
-	}
 
-	return ParsePacket(b.Bytes())
+	n, a, err := c.ReadFrom(*b)
+	if err != nil {
+		return nil, a, err
+	}
+	bb := make([]byte, n)
+	copy(bb, *b)
+
+	p, err := parsePacket(bb)
+	return p, a, err
 }

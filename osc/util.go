@@ -1,7 +1,6 @@
 package osc
 
 import (
-	"bytes"
 	"regexp"
 	"strings"
 	"sync"
@@ -12,11 +11,6 @@ import (
 ////
 var (
 	bufPool = sync.Pool{
-		New: func() interface{} {
-			return bytes.NewBuffer(make([]byte, 0, MaxPacketSize))
-		},
-	}
-	bPool = sync.Pool{
 		New: func() interface{} {
 			b := make([]byte, MaxPacketSize)
 			return &b
