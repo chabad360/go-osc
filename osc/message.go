@@ -52,7 +52,8 @@ func (m *Message) Match(addr string) bool {
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface.
 func (m *Message) MarshalBinary() ([]byte, error) {
-	buf := bPool.Get().(*[]byte)
+	buf := bufPool.Get().(*[]byte)
+	defer bufPool.Put(buf)
 	copy(*buf, empty[:])
 
 	n := writePaddedString(m.Address, *buf)
@@ -100,7 +101,6 @@ func (m *Message) MarshalBinary() ([]byte, error) {
 
 	b := make([]byte, n)
 	copy(b, *buf)
-	bPool.Put(buf)
 
 	return b, nil
 }
