@@ -7,17 +7,17 @@ import (
 	"time"
 )
 
-func TestAddMsgHandler(t *testing.T) {
-	d := NewStandardDispatcher()
-	err := d.AddMsgHandler("/address/test", func(msg *Message) {})
+func TestAddMethodFunc(t *testing.T) {
+	d := &Dispatcher{}
+	err := d.AddMethodFunc("/address/test", func(msg *Message) {})
 	if err != nil {
 		t.Error("Expected that OSC address '/address/test' is valid")
 	}
 }
 
-func TestAddMsgHandlerWithInvalidAddress(t *testing.T) {
-	d := NewStandardDispatcher()
-	err := d.AddMsgHandler("/address*/test", func(msg *Message) {})
+func TestAddMethodFuncFail(t *testing.T) {
+	d := &Dispatcher{}
+	err := d.AddMethodFunc("/address*/test", func(msg *Message) {})
 	if err == nil {
 		t.Error("Expected error with '/address*/test'")
 	}
@@ -37,8 +37,8 @@ func TestServerMessageDispatching(t *testing.T) {
 		}
 		defer conn.Close()
 
-		d := NewStandardDispatcher()
-		err = d.AddMsgHandler("/address/test", func(msg *Message) {
+		d := &Dispatcher{}
+		err = d.AddMethodFunc("/address/test", func(msg *Message) {
 			if len(msg.Arguments) != 1 {
 				t.Error("Argument length should be 1 and is: " + string(rune(len(msg.Arguments))))
 			}
@@ -55,9 +55,9 @@ func TestServerMessageDispatching(t *testing.T) {
 			t.Error("Error adding message handler")
 		}
 
-		server := &Server{Addr: "localhost:6677", Dispatcher: d}
+		server := &Server{Addr: "localhost:6677", Handler: d.Dispatch}
 		start <- true
-		server.Serve(conn)
+		server.Serve()
 	}()
 
 	go func() {
