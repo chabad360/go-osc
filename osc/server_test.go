@@ -25,7 +25,7 @@ func TestServerMessageReceiving(t *testing.T) {
 		// Start the client
 		start <- true
 
-		packet, err := server.ReceivePacket(c)
+		packet, _, err := server.ReceivePacketFromConn(c)
 		if err != nil {
 			t.Errorf("Server error: %v", err)
 			return
@@ -34,7 +34,7 @@ func TestServerMessageReceiving(t *testing.T) {
 			t.Error("nil packet")
 			return
 		}
-		packet, err = server.ReceivePacket(c)
+		packet, _, err = server.ReceivePacketFromConn(c)
 		if err != nil {
 			t.Errorf("Server error: %v", err)
 			return
@@ -43,7 +43,7 @@ func TestServerMessageReceiving(t *testing.T) {
 			t.Error("nil packet")
 			return
 		}
-		packet, err = server.ReceivePacket(c)
+		packet, _, err = server.ReceivePacketFromConn(c)
 		if err != nil {
 			t.Errorf("Server error: %v", err)
 			return
@@ -133,7 +133,7 @@ func TestReadTimeout(t *testing.T) {
 		defer c.Close()
 
 		start <- true
-		p, err := server.ReceivePacket(c)
+		p, _, err := server.ReceivePacketFromConn(c)
 		if err != nil {
 			t.Errorf("server error: %v", err)
 			return
@@ -144,13 +144,13 @@ func TestReadTimeout(t *testing.T) {
 		}
 
 		// Second receive should time out since client is delayed 150 milliseconds
-		if _, err = server.ReceivePacket(c); err == nil {
+		if _, _, err = server.ReceivePacketFromConn(c); err == nil {
 			t.Errorf("expected error")
 			return
 		}
 
 		// Next receive should get it
-		p, err = server.ReceivePacket(c)
+		p, _, err = server.ReceivePacketFromConn(c)
 		if err != nil {
 			t.Errorf("server error: %v", err)
 			return
@@ -164,14 +164,14 @@ func TestReadTimeout(t *testing.T) {
 	wg.Wait()
 }
 
-func BenchmarkReceivePacket(b *testing.B) {
+func BenchmarkReceivePacketFromConn(b *testing.B) {
 	d := &dummyConn{m: msg}
 	s := &Server{}
 	var p Packet
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		p, _ = s.ReceivePacket(d)
+		p, _, _ = s.ReceivePacketFromConn(d)
 	}
 	result = p
 }

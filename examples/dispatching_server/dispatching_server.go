@@ -1,18 +1,14 @@
 package main
 
-import "github.com/chabad360/go-osc/osc"
+import (
+	"fmt"
+	"github.com/chabad360/go-osc/osc"
+)
 
 func main() {
-	addr := "127.0.0.1:8765"
-
-	d := osc.NewStandardDispatcher()
-	d.AddMsgHandler("/message/address", func(msg *osc.Message) {
-		osc.PrintMessage(msg)
+	d := &osc.Dispatcher{}
+	d.AddMethodFunc("/message/address", func(msg *osc.Message) {
+		fmt.Println(msg.Address, msg.Arguments)
 	})
-	server := &osc.Server{
-		Addr:       addr,
-		Dispatcher: d,
-	}
-
-	server.ListenAndServe()
+	osc.ListenAndServe("127.0.0.1:8765", d.Dispatch)
 }

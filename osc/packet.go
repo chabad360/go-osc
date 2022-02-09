@@ -3,6 +3,23 @@ package osc
 import (
 	"encoding"
 	"fmt"
+	"sync"
+)
+
+const (
+	MaxPacketSize int = 65507
+	bit32Size     int = 4
+	bit64Size     int = 8
+)
+
+var (
+	empty   = [MaxPacketSize]byte{}
+	bufPool = sync.Pool{
+		New: func() interface{} {
+			b := make([]byte, MaxPacketSize)
+			return &b
+		},
+	}
 )
 
 // Packet is the interface for Message and Bundle.

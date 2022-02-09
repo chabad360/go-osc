@@ -40,7 +40,7 @@ func (m *Message) Append(args ...interface{}) error {
 	return nil
 }
 
-// Match returns true, if the OSC address pattern matches addr.
+// Match returns true, if the OSC Address matches addr.
 // The match is case-sensitive!
 func (m *Message) Match(addr string) bool {
 	regexp, err := getRegEx(m.Address)

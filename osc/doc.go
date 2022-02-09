@@ -1,80 +1,66 @@
 // Copyright 2013 - 2015 Sebastian Ruml <sebastian.ruml@gmail.com>
+// Copyright 2021 - 2022 Mendel Greenberg <mendel@chabad360.me>
 
-//Package osc provides a client and server for sending and receiving
-//OpenSoundControl messages.
+//Package osc provides a client and server for sending and receiving OpenSoundControl messages.
 //
-//The package is implemented in pure Go.
+//This implementation is based on the Open Sound Control 1.0 Specification (http://opensoundcontrol.org/spec-1_0.html).
 //
-//The implementation is based on the Open Sound Control 1.0 Specification
-//(http://opensoundcontrol.org/spec-1_0.html).
+//Open Sound Control (OSC) is an open, transport-independent, message-based protocol developed for communication among computers,
+//sound synthesizers, and other multimedia devices.
 //
-//Open Sound Control (OSC) is an open, transport-independent, message-based
-//protocol developed for communication among computers, sound synthesizers,
-//and other multimedia devices.
+//Features
 //
-//Features:
-//- Supports OSC messages with 'i' (TypeInt32), 'f' (TypeFloat32),
-// 's' (string), 'b' (blob / binary data), 'h' (TypeInt64), 't' (OSC timetag),
-//  'd' (Double/int64), 'T' (TypeTrue), 'F' (TypeFalse), 'N' (TypeNil) types.
-//- OSC bundles, including timetags
-//- Support for OSC address pattern including '*', '?', '{,}' and '[]' wildcards
+//- Supports OSC messages with the following TypeTags:
 //
-//This OSC implementation uses the UDP protocol for sending and receiving
-//OSC packets.
+//	'i' (int32)
+//	'f' (float32)
+//	's' (string)
+//	'b' ([]byte)
+//	't' (TimeTag)
+//	'h' (int64)
+//	'd' (float64)
+//	'T' (true)
+//	'F' (false)
+//	'N' (nil)
 //
-//The unit of transmission of OSC is an OSC Packet. Any application that sends
-//OSC Packets is an OSC Client; any application that receives OSC Packets is
-//an OSC Server.
+//- Supports OSC bundles, including TimeTags
 //
-//An OSC packet consists of its contents, a contiguous block of binary data,
-//and its size, the number of 8-bit bytes that comprise the contents. The
-//size of an OSC packet is always a multiple of 4.
+//- Full support for OSC Address matching and dispatching.
+//
+//Packets
+//
+//The unit of transmission of OSC is an OSC Packet. Any application that sends OSC Packets is an OSC Client;
+//any application that receives OSC Packets is an OSC Server.
+//
+//An OSC packet consists of its contents, a contiguous block of binary data.
+//The size of an OSC packet is always 32-bit aligned.
 //
 //OSC packets come in two flavors:
 //
-//OSC Messages: An OSC message consists of an OSC address pattern, followed
-//by an OSC Type Tag TypeString, and finally by zero or more OSC arguments.
+//OSC Messages: An OSC message consists of an OSC address pattern and  zero or more OSC arguments.
 //
-//OSC Bundles: An OSC Bundle consists of the string "#bundle" followed
-//by an OSC Time Tag, followed by zero or more OSC bundle elements. Each bundle
-//element can be another OSC bundle (note this recursive definition: bundle may
-//contain bundles) or OSC message.
+//OSC Bundles: An OSC Bundle consists of an OSC Timetag, followed by zero or more OSC bundle elements.
+//Each bundle element can be another OSC bundle (note this recursive definition: a bundle may contain bundles) or OSC message.
 //
-//An OSC bundle element consists of its size and its contents. The size is
-//an int32 representing the number of 8-bit bytes in the contents, and will
-//always be a multiple of 4. The contents are either an OSC Message or an
-//OSC Bundle.
+//Usage
 //
-//The following argument types are supported: 'i' (TypeInt32), 'f' (TypeFloat32),
-//'s' (string), 'b' (blob / binary data), 'h' (TypeInt64), 't' (OSC timetag),
-//'d' (Double/int64), 'T' (TypeTrue), 'F' (TypeFalse), 'N' (TypeNil).
+//OSC client example:
+//  client := osc.NewClient("localhost", 8765)
+//  msg := osc.NewMessage("/osc/address")
+//  msg.Append(int32(111))
+//  msg.Append(true)
+//  msg.Append("hello")
+//  client.Send(msg)
 //
-// go-osc supports the following OSC address patterns:
-//  - '*', '?', '{,}' and '[]' wildcards.
+//OSC server example:
+//  d := osc.NewStandardDispatcher()
+//  d.AddMsgMethod("/message/address", func(msg *osc.Message) {
+//      osc.PrintMessage(msg)
+//  })
 //
-// Usage
-//
-// OSC client example:
-//
-//    client := osc.NewClient("localhost", 8765)
-//    msg := osc.NewMessage("/osc/address")
-//    msg.Append(int32(111))
-//    msg.Append(true)
-//    msg.Append("hello")
-//    client.Send(msg)
-//
-// OSC server example:
-//
-//    addr := "127.0.0.1:8765"
-//    d := osc.NewStandardDispatcher()
-//    d.AddMsgHandler("/message/address", func(msg *osc.Message) {
-//        osc.PrintMessage(msg)
-//    })
-//
-//    server := &osc.Server{
-//        Addr: addr,
-//        Dispatcher:d,
-//    }
-//    server.ListenAndServe()
-
+//  server := &osc.Server{
+//      Addr: "127.0.0.1:8765",
+//      Dispatcher: d,
+//  }
+//  server.ListenAndServe()
 package osc

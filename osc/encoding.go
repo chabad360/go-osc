@@ -12,12 +12,6 @@ import (
 // De/Encoding functions
 ////
 
-const (
-	MaxPacketSize int = 65507
-	bit32Size     int = 4
-	bit64Size     int = 8
-)
-
 // parseBlob parses an OSC blob from the blob byte array. Padding bytes are
 // removed from the reader and not returned.
 func parseBlob(data []byte) ([]byte, int, error) {
