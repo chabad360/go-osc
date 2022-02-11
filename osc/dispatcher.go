@@ -60,13 +60,17 @@ func (d *Dispatcher) Dispatch(packet Packet, a net.Addr) {
 		if err != nil {
 			panic(fmt.Errorf("dispatch: invalid Packet: %v: %w", p, err))
 		}
-		// I want to make this more efficient than running through a map, but I'm not sure how I'd go about that.
+		// The OSC Spec mentions that each address is divided into parts, so we could use a radix tree here.
+		// For now, I'm gonna hope that being clever is enough
+		r.Longest()
+		aParts := len(strings.Split(p.Address, "/"))
 		for addr, method := range d.methods {
-			if r.MatchString(addr) {
-				go func() {
-					defer recoverer(a)
-					method.HandleMessage(p)
-				}()
+			if aParts == len(strings.Split(addr, "/")) && r.FindString(addr) == addr {
+				// This is going to stay blocking until I can figure out how to deal with what appears to be a race condition
+				//go func() {
+				//	defer recoverer(a)
+				method.HandleMessage(p)
+				//}()
 			}
 		}
 	case *Bundle:
@@ -85,11 +89,12 @@ func getRegEx(pattern string) (*regexp.Regexp, error) {
 		".", `\.`,
 		"(", `\(`,
 		")", `\)`,
-		"*", ".*",
+		"*", "[^/]*",
 		"{", "(",
 		",", "|",
 		"}", ")",
-		"?", ".",
+		"?", "[^/]",
+		"!", "^",
 	)
 	pattern = r.Replace(pattern)
 
