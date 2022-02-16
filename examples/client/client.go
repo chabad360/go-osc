@@ -3,19 +3,20 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/chabad360/go-osc/osc"
 	"io"
 	"os"
 	"strings"
-	"time"
-
-	"github.com/chabad360/go-osc/osc"
 )
 
 // TODO: Revise the client!
 func main() {
-	ip := "localhost"
-	port := 8765
-	client := osc.NewClient(ip, port)
+	addr := "localhost:8765"
+	client, err := osc.Dial(addr)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	fmt.Println("### Welcome to go-osc transmitter demo")
 	fmt.Println("Please, select the OSC packet type you would like to send:")
@@ -38,28 +39,14 @@ func main() {
 
 		sline := strings.TrimRight(string(line), "\n")
 		if sline == "m" {
-			message := osc.NewMessage("/message/address")
-			message.Append(int32(12345))
-			message.Append("teststring")
-			message.Append(true)
-			message.Append(false)
-			client.Send(message)
+			message := osc.NewMessage("/message/address", int32(12345), "teststring", true, false)
+			fmt.Println(client.Send(message))
 		} else if sline == "b" {
-			bundle := osc.NewBundle(time.Now())
-			message1 := osc.NewMessage("/bundle/message/1")
-			message1.Append(int32(12345))
-			message1.Append("teststring")
-			message1.Append(true)
-			message1.Append(false)
-			message2 := osc.NewMessage("/bundle/message/2")
-			message2.Append(int32(3344))
-			message2.Append(float32(101.9))
-			message2.Append("string1")
-			message2.Append("string2")
-			message2.Append(true)
-			bundle.Append(message1)
-			bundle.Append(message2)
-			client.Send(bundle)
+			message1 := osc.NewMessage("/bundle/message/1", int32(12345), "teststring", true, false)
+			message2 := osc.NewMessage("/bundle/message/2", int32(3344), float32(101.9), "string1", "string2", true)
+
+			bundle := osc.NewBundle(message1, message2)
+			fmt.Println(client.Send(bundle))
 		} else if sline == "q" {
 			fmt.Println("Exit!")
 			os.Exit(0)
