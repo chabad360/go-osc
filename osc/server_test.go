@@ -2,10 +2,38 @@ package osc
 
 import (
 	"net"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
 )
+
+type dummyConn struct {
+	net.Conn
+	m []byte
+}
+
+func (d *dummyConn) ReadFrom(buf []byte) (n int, addr net.Addr, err error) {
+	n = copy(buf, d.m)
+	return
+}
+
+func (d *dummyConn) Read(buf []byte) (n int, err error) {
+	n = copy(buf, d.m)
+	return
+}
+
+func (d *dummyConn) WriteTo(buf []byte, addr net.Addr) (n int, err error) { return }
+
+func (d *dummyConn) Close() (err error) { return }
+
+func (d *dummyConn) LocalAddr() (addr net.Addr) { return }
+
+func (d *dummyConn) SetDeadline(t time.Time) (err error) { return }
+
+func (d *dummyConn) SetReadDeadline(t time.Time) (err error) { return }
+
+func (d *dummyConn) SetWriteDeadline(t time.Time) (err error) { return }
 
 func TestServerMessageReceiving(t *testing.T) {
 	finish := make(chan bool)
@@ -163,6 +191,218 @@ func TestReadTimeout(t *testing.T) {
 
 	wg.Wait()
 }
+
+//func TestServer_Close(t *testing.T) {
+//	s := &Server{Handler: func(_ Packet, _ net.Addr) {}, Addr: ":10000"}
+//	go s.ListenAndServe()
+//	if s.conn == nil {
+//		t.Fatal("Close(): server not started")
+//	}
+//	if err := s.Close(); (err != nil) != false {
+//		t.Errorf("Close() error = %v, wantErr %v", err, false)
+//	}
+//	if s.conn != nil {
+//		t.Error("Close(): failed to nil conn")
+//	}
+//}
+
+func TestServer_ListenAndServe(t *testing.T) {
+	type fields struct {
+		Addr        string
+		Handler     HandlerFunc
+		ReadTimeout time.Duration
+		conn        net.PacketConn
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{
+				Addr:        tt.fields.Addr,
+				Handler:     tt.fields.Handler,
+				ReadTimeout: tt.fields.ReadTimeout,
+				conn:        tt.fields.conn,
+			}
+			if err := s.ListenAndServe(); (err != nil) != tt.wantErr {
+				t.Errorf("ListenAndServe() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestServer_ReceivePacketFromConn(t *testing.T) {
+	type fields struct {
+		Addr        string
+		Handler     HandlerFunc
+		ReadTimeout time.Duration
+		conn        net.PacketConn
+	}
+	type args struct {
+		conn net.PacketConn
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    Packet
+		want1   net.Addr
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{
+				Addr:        tt.fields.Addr,
+				Handler:     tt.fields.Handler,
+				ReadTimeout: tt.fields.ReadTimeout,
+				conn:        tt.fields.conn,
+			}
+			got, got1, err := s.ReceivePacketFromConn(tt.args.conn)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ReceivePacketFromConn() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ReceivePacketFromConn() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.want1) {
+				t.Errorf("ReceivePacketFromConn() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
+
+func TestServer_Serve(t *testing.T) {
+	type fields struct {
+		Addr        string
+		Handler     HandlerFunc
+		ReadTimeout time.Duration
+		conn        net.PacketConn
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{
+				Addr:        tt.fields.Addr,
+				Handler:     tt.fields.Handler,
+				ReadTimeout: tt.fields.ReadTimeout,
+				conn:        tt.fields.conn,
+			}
+			if err := s.Serve(); (err != nil) != tt.wantErr {
+				t.Errorf("Serve() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestServer_WriteTo(t *testing.T) {
+	type fields struct {
+		Addr        string
+		Handler     HandlerFunc
+		ReadTimeout time.Duration
+		conn        net.PacketConn
+	}
+	type args struct {
+		p    Packet
+		addr string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    int
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{
+				Addr:        tt.fields.Addr,
+				Handler:     tt.fields.Handler,
+				ReadTimeout: tt.fields.ReadTimeout,
+				conn:        tt.fields.conn,
+			}
+			got, err := s.WriteTo(tt.args.p, tt.args.addr)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("WriteTo() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("WriteTo() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestServer_readFromConnection(t *testing.T) {
+	type fields struct {
+		Addr        string
+		Handler     HandlerFunc
+		ReadTimeout time.Duration
+		conn        net.PacketConn
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    Packet
+		want1   net.Addr
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{
+				Addr:        tt.fields.Addr,
+				Handler:     tt.fields.Handler,
+				ReadTimeout: tt.fields.ReadTimeout,
+				conn:        tt.fields.conn,
+			}
+			got, got1, err := s.readFromConnection()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("readFromConnection() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("readFromConnection() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.want1) {
+				t.Errorf("readFromConnection() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
+
+// The following test relies on having a more solid logging framework
+//func Test_recoverer(t *testing.T) {
+//	type args struct {
+//		a net.Addr
+//	}
+//	tests := []struct {
+//		name string
+//		args args
+//	}{
+//		// TODO: Add test cases.
+//	}
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//			recoverer(tt.args.a)
+//		})
+//	}
+//}
 
 func BenchmarkReceivePacketFromConn(b *testing.B) {
 	d := &dummyConn{m: msg}

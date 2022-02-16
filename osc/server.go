@@ -77,6 +77,9 @@ func recoverer(a net.Addr) {
 
 // Close allows you to close the Server connection.
 func (s *Server) Close() error {
+	if s.conn == nil {
+		return nil
+	}
 	if err := s.conn.Close(); err != nil {
 		return err
 	}
