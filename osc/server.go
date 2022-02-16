@@ -77,14 +77,7 @@ func recoverer(a net.Addr) {
 
 // Close allows you to close the Server connection.
 func (s *Server) Close() error {
-	if s.conn == nil {
-		return nil
-	}
-	if err := s.conn.Close(); err != nil {
-		return err
-	}
-	s.conn = nil
-	return nil
+	return s.conn.Close()
 }
 
 // WriteTo allows you to reuse the Server connection for sending Packets.
@@ -101,6 +94,7 @@ func (s *Server) WriteTo(p Packet, addr string) (int, error) {
 }
 
 // ReceivePacketFromConn reads a single packet from conn.
+// Deprecated: use ListenAndServe() instead.
 func (s *Server) ReceivePacketFromConn(conn net.PacketConn) (Packet, net.Addr, error) {
 	c := s.conn
 	defer func() { s.conn = c }()

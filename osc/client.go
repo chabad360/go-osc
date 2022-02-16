@@ -1,53 +1,40 @@
 package osc
 
 import (
-	"fmt"
 	"net"
 )
 
-// Client enables you to send OSC packets. It sends OSC messages and bundles to
-// the given IP address and port.
+// Client enables you to send OSC Packets to a specified server.
 type Client struct {
-	IP    string
-	Port  int
-	laddr *net.UDPAddr
+	conn *net.UDPConn
 }
 
-// NewClient creates a new OSC client. The Client is used to send OSC
-// messages and OSC bundles over an UDP network connection. The `ip` argument
-// specifies the IP address and `port` defines the target port where the
-// messages and bundles will be send to.
-func NewClient(ip string, port int) *Client {
-	return &Client{IP: ip, Port: port, laddr: nil}
-}
-
-// SetLocalAddr sets the local address.
-func (c *Client) SetLocalAddr(ip string, port int) error {
-	laddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", ip, port))
+// Dial creates a new OSC Client with a connection to the specified server.
+func Dial(addr string) (*Client, error) {
+	a, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	c.laddr = laddr
-	return nil
+
+	conn, err := net.DialUDP("udp", nil, a)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{conn: conn}, nil
 }
 
-// Send sends an OSC Bundle or an OSC Message.
+// Send sends an OSC Packet to the server.
 func (c *Client) Send(packet Packet) error {
-	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", c.IP, c.Port))
-	if err != nil {
-		return err
-	}
-	conn, err := net.DialUDP("udp", c.laddr, addr)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
 	data, err := packet.MarshalBinary()
 	if err != nil {
 		return err
 	}
 
-	_, err = conn.Write(data)
+	_, err = c.conn.Write(data)
 	return err
+}
+
+// Close closes the connection to the server.
+func (c *Client) Close() error {
+	return c.conn.Close()
 }

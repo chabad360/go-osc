@@ -23,17 +23,17 @@ func (d *dummyConn) Read(buf []byte) (n int, err error) {
 	return
 }
 
-func (d *dummyConn) WriteTo(buf []byte, addr net.Addr) (n int, err error) { return }
+func (d *dummyConn) WriteTo(_ []byte, _ net.Addr) (n int, err error) { return }
 
 func (d *dummyConn) Close() (err error) { return }
 
 func (d *dummyConn) LocalAddr() (addr net.Addr) { return }
 
-func (d *dummyConn) SetDeadline(t time.Time) (err error) { return }
+func (d *dummyConn) SetDeadline(_ time.Time) (err error) { return }
 
-func (d *dummyConn) SetReadDeadline(t time.Time) (err error) { return }
+func (d *dummyConn) SetReadDeadline(_ time.Time) (err error) { return }
 
-func (d *dummyConn) SetWriteDeadline(t time.Time) (err error) { return }
+func (d *dummyConn) SetWriteDeadline(_ time.Time) (err error) { return }
 
 func TestServerMessageReceiving(t *testing.T) {
 	finish := make(chan bool)
@@ -101,7 +101,7 @@ func TestServerMessageReceiving(t *testing.T) {
 		select {
 		case <-timeout:
 		case <-start:
-			client := NewClient("localhost", 6677)
+			client, _ := Dial("localhost:6677")
 			msg := NewMessage("/address/test")
 			msg.Append(int32(1122))
 			msg.Append(int32(3344))
@@ -135,7 +135,7 @@ func TestReadTimeout(t *testing.T) {
 		case <-time.After(5 * time.Second):
 			t.Fatal("timed out")
 		case <-start:
-			client := NewClient("localhost", 6677)
+			client, _ := Dial("localhost:6677")
 			msg := NewMessage("/address/test1")
 			err := client.Send(msg)
 			if err != nil {
