@@ -43,7 +43,7 @@ func (s *Server) Serve() error {
 	for {
 		msg, addr, err := s.readFromConnection()
 		if err != nil {
-			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
 				if falloff == 0 {
 					falloff = 5 * time.Millisecond
 				} else {

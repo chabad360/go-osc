@@ -1,5 +1,7 @@
 package osc
 
+import "fmt"
+
 type TypeTag rune
 
 const (
@@ -15,6 +17,30 @@ const (
 	TypeFalse   TypeTag = 'F'
 	TypeInvalid TypeTag = 0
 )
+
+type TypeError struct {
+	typeString string
+}
+
+func (t *TypeError) Error() string {
+	return fmt.Sprintf("osc: unsupported type: %s", t.typeString)
+}
+
+func NewTypeError(i interface{}) *TypeError {
+	return &TypeError{fmt.Sprintf("%T", i)}
+}
+
+type TypeTagError struct {
+	typeTag rune
+}
+
+func (t *TypeTagError) Error() string {
+	return fmt.Sprintf("osc: unsupported TypeTag: %c", t.typeTag)
+}
+
+func NewTypeTagError(t rune) *TypeTagError {
+	return &TypeTagError{t}
+}
 
 // ToTypeTag returns the OSC TypeTag for the given argument.
 // Returns TypeInvalid if the argument type is unsupported.

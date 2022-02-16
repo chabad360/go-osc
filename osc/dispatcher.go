@@ -31,8 +31,8 @@ func (d *Dispatcher) AddMethod(addr string, method Method) error {
 	if d.methods == nil {
 		d.methods = make(map[string]Method)
 	}
-
-	if strings.ContainsAny(addr, "*?,[]{}# ") {
+	// may need to guard regex chars as well
+	if strings.ContainsAny(addr, `*?,[]{}# `) {
 		return fmt.Errorf("AddMsgMethod: OSC Method may not contain any characters in \"*?,[]{}# \"")
 	}
 
@@ -60,8 +60,8 @@ func (d *Dispatcher) Dispatch(packet Packet, a net.Addr) {
 		if err != nil {
 			panic(fmt.Errorf("dispatch: invalid Packet: %v: %w", p, err))
 		}
-		// The OSC Spec mentions that each address is divided into parts, so we could use a radix tree here.
-		// For now, I'm gonna hope that being clever is enough
+		// The OSC Spec mentions that each address is divided into parts, so w.e could use a radix tree here.
+		// For now, I'm gonna hope that being clever with regex is enough
 		r.Longest()
 		aParts := len(strings.Split(p.Address, "/"))
 		for addr, method := range d.methods {

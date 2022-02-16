@@ -2,6 +2,7 @@ package osc
 
 import (
 	"encoding"
+	"errors"
 	"fmt"
 	"sync"
 )
@@ -28,6 +29,8 @@ type Packet interface {
 	encoding.BinaryUnmarshaler
 }
 
+var InvalidError = errors.New("invalid data")
+
 // ParsePacket parses an OSC packet.
 func ParsePacket(d []byte) (Packet, error) {
 	data := make([]byte, len(d))
@@ -39,7 +42,7 @@ func ParsePacket(d []byte) (Packet, error) {
 // parsePacket assumes that the bytes have already been copied.
 func parsePacket(data []byte) (Packet, error) {
 	if !(len(data) > 0) {
-		return nil, fmt.Errorf("parsePacket: invalid packet")
+		return nil, fmt.Errorf("parsePacket: %w", InvalidError)
 	}
 
 	switch data[0] {
@@ -48,6 +51,6 @@ func parsePacket(data []byte) (Packet, error) {
 	case '#': // An OSC bundle starts with a '#'
 		return newBundleFromData(data)
 	default:
-		return nil, fmt.Errorf("parsePacket: invalid packet")
+		return nil, fmt.Errorf("parsePacket: %w", InvalidError)
 	}
 }

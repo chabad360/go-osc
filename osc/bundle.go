@@ -105,11 +105,11 @@ func (b *Bundle) UnmarshalBinary(d []byte) error {
 // unmarshalBinary is the actual implementation, it doesn't copy, so we can use a single copy for bundles.
 func (b *Bundle) unmarshalBinary(data []byte) error {
 	if (len(data) % bit32Size) != 0 {
-		return fmt.Errorf("UnmarshalBinary: data isn't padded properly")
+		return fmt.Errorf("UnmarshalBinary: %w", AlignmentError)
 	}
 
 	if len(data) < 16 {
-		return fmt.Errorf("UnmarshalBinary: bundle is too short")
+		return fmt.Errorf("UnmarshalBinary: %w", NewRangeError(16, len(data)))
 	}
 
 	// Read the '#bundle' OSC string
@@ -120,7 +120,7 @@ func (b *Bundle) unmarshalBinary(data []byte) error {
 	data = data[n:]
 
 	if startTag != bundleTagString {
-		return fmt.Errorf("invalid bundle start tag: %s", startTag)
+		return fmt.Errorf("unmarshalBinary: %w", InvalidError)
 	}
 
 	// Read the timetag
@@ -134,7 +134,7 @@ func (b *Bundle) unmarshalBinary(data []byte) error {
 		length := int(binary.BigEndian.Uint32(data[:bit32Size]))
 		data = data[bit32Size:]
 		if len(data) < length {
-			return fmt.Errorf("UnmarshalBinary: invalid bundle element length %d: remaining data in packet: %d", length, len(data))
+			return fmt.Errorf("UnmarshalBinary: %w", NewRangeError(length, len(data)))
 		}
 
 		p, err := parsePacket(data[:length])
