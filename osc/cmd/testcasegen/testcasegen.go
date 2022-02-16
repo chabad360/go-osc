@@ -1,5 +1,8 @@
 package main
 
+// This tool was pretty a much a one off script to generate a bunch of test cases from go-fuzz.
+// May as well keep it around, it might come in handy in the future.
+
 import (
 	"fmt"
 	"github.com/chabad360/go-osc/osc"

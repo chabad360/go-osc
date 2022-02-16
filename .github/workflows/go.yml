@@ -7,7 +7,6 @@ on:
     branches: [ master ]
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
     steps:
@@ -22,4 +21,10 @@ jobs:
       run: go build -v ./osc
 
     - name: Test
-      run: go test -v ./osc
+      run: go test -json ./osc > test.json
+
+    - name: Annotate tests
+      if: always()
+      uses: guyarb/golang-test-annotations@v0.5.0
+      with:
+        test-results: test.json
