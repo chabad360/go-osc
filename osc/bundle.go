@@ -107,7 +107,6 @@ func (b *Bundle) unmarshalBinary(data []byte) error {
 	if (len(data) % bit32Size) != 0 {
 		return fmt.Errorf("UnmarshalBinary: data isn't padded properly")
 	}
-	c := len(data)
 
 	if len(data) < 16 {
 		return fmt.Errorf("UnmarshalBinary: bundle is too short")
@@ -133,10 +132,10 @@ func (b *Bundle) unmarshalBinary(data []byte) error {
 	for len(data) > 0 {
 		// Read the size of the bundle element
 		length := int(binary.BigEndian.Uint32(data[:bit32Size]))
-		if len(data) < length {
-			return fmt.Errorf("invalid bundle element length: %d, %#v, %d", length, data[:bit32Size], c-len(data))
-		}
 		data = data[bit32Size:]
+		if len(data) < length {
+			return fmt.Errorf("UnmarshalBinary: invalid bundle element length %d: remaining data in packet: %d", length, len(data))
+		}
 
 		p, err := parsePacket(data[:length])
 		if err != nil {
