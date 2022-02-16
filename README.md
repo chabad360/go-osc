@@ -6,29 +6,23 @@
 
 ## Features
 
-- OSC Bundles, including TimeTags
+- OSC Bundles
 - OSC Messages
 - OSC Client
 - OSC Server
+- Support for OSC address pattern matching
 - Supports the following OSC argument types:
-  - 'i' (Int32)
-  - 'f' (Float32)
-  - 's' (string)
-  - 'b' (blob / binary data)
-  - 'h' (Int64)
-  - 't' (OSC timetag)
-  - 'd' (Double/int64)
-  - 'T' (True)
-  - 'F' (False)
-  - 'N' (Nil)
-- Support for OSC address pattern including '\*', '?', '{,}' and '[]' wildcards
-
-## Install
-
-```shell
-go get github.com/chabad360/go-osc
-```
-
+  - `i` (Int32)
+  - `f` (Float32)
+  - `s` (string)
+  - `b` (blob / binary data)
+  - `h` (Int64)
+  - `t` (OSC timetag)
+  - `d` (Double/int64)
+  - `T` (True)
+  - `F` (False)
+  - `N` (Nil)
+  
 ## Usage
 
 ### Client
