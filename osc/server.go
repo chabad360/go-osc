@@ -82,6 +82,9 @@ func (s *Server) Close() error {
 
 // WriteTo allows you to reuse the Server connection for sending Packets.
 func (s *Server) WriteTo(p Packet, addr string) (int, error) {
+	if s.conn == nil {
+		return 0, net.ErrClosed
+	}
 	b, err := p.MarshalBinary()
 	if err != nil {
 		return 0, err
