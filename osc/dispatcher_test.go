@@ -2,84 +2,112 @@ package osc
 
 import (
 	"net"
-	"sync"
 	"testing"
-	"time"
 )
 
-func TestAddMsgHandler(t *testing.T) {
-	d := NewStandardDispatcher()
-	err := d.AddMsgHandler("/address/test", func(msg *Message) {})
-	if err != nil {
-		t.Error("Expected that OSC address '/address/test' is valid")
+func TestDispatcher_AddMethodFunc(t *testing.T) {
+	type args struct {
+		addr   string
+		method MethodFunc
 	}
-}
-
-func TestAddMsgHandlerWithInvalidAddress(t *testing.T) {
-	d := NewStandardDispatcher()
-	err := d.AddMsgHandler("/address*/test", func(msg *Message) {})
-	if err == nil {
-		t.Error("Expected error with '/address*/test'")
+	tests := []struct {
+		name    string
+		methods map[string]Method
+		args    args
+		wantErr bool
+	}{
+		{"valid", nil, args{"/address/test", func(_ *Message) {}}, false},
+		{"invalid", nil, args{"/address*/test", func(_ *Message) {}}, true},
+		{"already_exists", map[string]Method{"/address/test": MethodFunc(func(_ *Message) {})}, args{"/address/test", func(_ *Message) {}}, true},
 	}
-}
-
-func TestServerMessageDispatching(t *testing.T) {
-	finish := make(chan bool)
-	start := make(chan bool)
-	done := sync.WaitGroup{}
-	done.Add(2)
-
-	// Start the OSC server in a new go-routine
-	go func() {
-		conn, err := net.ListenPacket("udp", "localhost:6677")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer conn.Close()
-
-		d := NewStandardDispatcher()
-		err = d.AddMsgHandler("/address/test", func(msg *Message) {
-			if len(msg.Arguments) != 1 {
-				t.Error("Argument length should be 1 and is: " + string(rune(len(msg.Arguments))))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := &Dispatcher{
+				methods: tt.methods,
 			}
-
-			if msg.Arguments[0].(int32) != 1122 {
-				t.Error("Argument should be 1122 and is: " + string(msg.Arguments[0].(int32)))
+			if err := d.AddMethodFunc(tt.args.addr, tt.args.method); (err != nil) != tt.wantErr {
+				t.Errorf("AddMethodFunc() error = %v, wantErr %v", err, tt.wantErr)
 			}
-
-			// Stop OSC server
-			conn.Close()
-			finish <- true
 		})
-		if err != nil {
-			t.Error("Error adding message handler")
-		}
+	}
+}
 
-		server := &Server{Addr: "localhost:6677", Dispatcher: d}
-		start <- true
-		server.Serve(conn)
-	}()
+var testDispatcher = &Dispatcher{
+	methods: map[string]Method{
+		"/osc": func() MethodFunc {
+			return func(msg *Message) {
+				msg.Arguments[0] = msg.Arguments[0].(int) + 1
+			}
+		}(),
+		"/os": func() MethodFunc {
+			return func(msg *Message) {
+				msg.Arguments[0] = msg.Arguments[0].(int) + 2
+			}
+		}(),
+		"/osv": func() MethodFunc {
+			return func(msg *Message) {
+				msg.Arguments[0] = msg.Arguments[0].(int) + 4
+			}
+		}(),
+		"/osabc": func() MethodFunc {
+			return func(msg *Message) {
+				msg.Arguments[0] = msg.Arguments[0].(int) + 8
+			}
+		}(),
 
-	go func() {
-		timeout := time.After(5 * time.Second)
-		select {
-		case <-timeout:
-		case <-start:
-			time.Sleep(500 * time.Millisecond)
-			client := NewClient("localhost", 6677)
-			msg := NewMessage("/address/test")
-			msg.Append(int32(1122))
-			client.Send(msg)
-		}
+		"/osc123": func() MethodFunc {
+			return func(msg *Message) {
+				msg.Arguments[0] = msg.Arguments[0].(int) + 16
+			}
+		}(),
+		"/osc1b3": func() MethodFunc {
+			return func(msg *Message) {
+				msg.Arguments[0] = msg.Arguments[0].(int) + 32
+			}
+		}(),
+		"/oscz": func() MethodFunc {
+			return func(msg *Message) {
+				msg.Arguments[0] = msg.Arguments[0].(int) + 64
+			}
+		}(),
+		"/osc/z": func() MethodFunc {
+			return func(msg *Message) {
+				msg.Arguments[0] = msg.Arguments[0].(int) + 128
+			}
+		}(),
+		"/osc/23f": func() MethodFunc {
+			return func(msg *Message) {
+				msg.Arguments[0] = msg.Arguments[0].(int) + 256
+			}
+		}(),
+	},
+}
 
-		done.Done()
-
-		select {
-		case <-timeout:
-		case <-finish:
-		}
-		done.Done()
-	}()
-
-	done.Wait()
+func TestDispatcher_Dispatch(t *testing.T) { // TODO: somehow test bundles
+	type args struct {
+		packet Packet
+		a      net.Addr
+	}
+	tests := []struct {
+		name   string
+		args   args
+		expect int
+	}{
+		{"single", args{NewMessage("/osc", 0), nil}, 1},
+		{"c_or_not", args{NewMessage("/os{c,}", 0), nil}, 3},
+		{"single_any", args{NewMessage("/os{?,}", 0), nil}, 7},
+		{"single_must", args{NewMessage("/os{c,v}", 0), nil}, 5},
+		{"match_in_part", args{NewMessage("/osc{?,}z", 0), nil}, 64},
+		{"match_multiple_parts", args{NewMessage("/osc/?", 0), nil}, 128},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testDispatcher.Dispatch(tt.args.packet, tt.args.a)
+			//time.Sleep(time.Second)
+			p := tt.args.packet.(*Message)
+			if p.Arguments[0].(int) != tt.expect {
+				t.Errorf("Dispatch() got = %v, expect %v", p.Arguments[0].(int), tt.expect)
+			}
+		})
+	}
 }

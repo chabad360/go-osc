@@ -1,104 +1,102 @@
-// Package osc provides a package for sending and receiving OpenSoundControl
-// messages. The package is implemented in pure Go.
 package osc
 
 import (
-	"errors"
 	"fmt"
+	"net"
+	"regexp"
 	"strings"
 	"time"
 )
 
-// Dispatcher is an interface for an OSC message dispatcher. A dispatcher is
-// responsible for dispatching received OSC messages.
-type Dispatcher interface {
-	Dispatch(packet Packet)
-}
-
-// Handler is an interface for message handlers. Every handler implementation
-// for an OSC message must implement this interface.
-type Handler interface {
+// Method is an interface for OSC Methods.
+type Method interface {
 	HandleMessage(msg *Message)
 }
 
-// HandlerFunc implements the Handler interface. Type definition for an OSC
-// handler function.
-type HandlerFunc func(msg *Message)
+// MethodFunc implements the Method interface. Type definition for an OSC Method function.
+type MethodFunc func(msg *Message)
 
-// HandleMessage calls itself with the given OSC Message. Implements the
-// Handler interface.
-func (f HandlerFunc) HandleMessage(msg *Message) {
+// HandleMessage calls itself with the given OSC Message. Implements the Method interface.
+func (f MethodFunc) HandleMessage(msg *Message) {
 	f(msg)
 }
 
-// StandardDispatcher is a dispatcher for OSC packets. It handles the dispatching of
-// received OSC packets to Handlers for their given address.
-type StandardDispatcher struct {
-	handlers       map[string]Handler
-	defaultHandler Handler
+// Dispatcher handles the dispatching of received OSC Packets to Methods for their given Address.
+type Dispatcher struct {
+	methods map[string]Method
 }
 
-// NewStandardDispatcher returns an StandardDispatcher.
-func NewStandardDispatcher() *StandardDispatcher {
-	return &StandardDispatcher{handlers: make(map[string]Handler)}
-}
-
-// AddMsgHandler adds a new message handler for the given OSC address.
-func (s *StandardDispatcher) AddMsgHandler(addr string, handler HandlerFunc) error {
-	if addr == "*" {
-		s.defaultHandler = handler
-		return nil
+// AddMethod adds a new OSC Method for the given OSC Address.
+func (d *Dispatcher) AddMethod(addr string, method Method) error {
+	if d.methods == nil {
+		d.methods = make(map[string]Method)
 	}
-	for _, chr := range "*?,[]{}# " {
-		if strings.Contains(addr, fmt.Sprintf("%c", chr)) {
-			return errors.New("OSC Address string may not contain any characters in \"*?,[]{}#")
-		}
+	// may need to guard regex chars as well
+	if strings.ContainsAny(addr, `*?,[]{}# `) {
+		return fmt.Errorf("AddMsgMethod: OSC Method may not contain any characters in \"*?,[]{}# \"")
 	}
 
-	if addressExists(addr, s.handlers) {
-		return errors.New("OSC address exists already")
+	if _, ok := d.methods[addr]; ok {
+		return fmt.Errorf("AddMsgMethod: OSC Method exists already")
 	}
 
-	s.handlers[addr] = handler
+	d.methods[addr] = method
 	return nil
 }
 
-// Dispatch dispatches OSC packets. Implements the Dispatcher interface.
-func (s *StandardDispatcher) Dispatch(packet Packet) {
+// AddMethodFunc allows you to just pass a MethodFunc.
+func (d *Dispatcher) AddMethodFunc(addr string, method MethodFunc) error {
+	return d.AddMethod(addr, method)
+}
+
+// Dispatch dispatches OSC Packets.
+func (d *Dispatcher) Dispatch(packet Packet, a net.Addr) {
 	switch p := packet.(type) {
 	default:
-		return
+		panic(fmt.Errorf("dispatch: invalid Packet: %v", p))
 
 	case *Message:
-		for addr, handler := range s.handlers {
-			if p.Match(addr) {
-				handler.HandleMessage(p)
+		r, err := getRegEx(p.Address)
+		if err != nil {
+			panic(fmt.Errorf("dispatch: invalid Packet: %v: %w", p, err))
+		}
+		// The OSC Spec mentions that each address is divided into parts, so w.e could use a radix tree here.
+		// For now, I'm gonna hope that being clever with regex is enough
+		r.Longest()
+		aParts := len(strings.Split(p.Address, "/"))
+		for addr, method := range d.methods {
+			if aParts == len(strings.Split(addr, "/")) && r.FindString(addr) == addr {
+				// This is going to stay blocking until I can figure out how to deal with what appears to be a race condition
+				//go func() {
+				//	defer recoverer(a)
+				method.HandleMessage(p)
+				//}()
 			}
 		}
-		if s.defaultHandler != nil {
-			s.defaultHandler.HandleMessage(p)
-		}
-
 	case *Bundle:
-		timer := time.NewTimer(p.Timetag.ExpiresIn())
-
-		go func() {
-			<-timer.C
-			for _, message := range p.Elements {
-				switch m := message.(type) {
-				case *Message:
-					for address, handler := range s.handlers {
-						if m.Match(address) {
-							handler.HandleMessage(m)
-						}
-					}
-					if s.defaultHandler != nil {
-						s.defaultHandler.HandleMessage(m)
-					}
-				case *Bundle:
-					s.Dispatch(m)
-				}
+		time.AfterFunc(p.Timetag.ExpiresIn(), func() {
+			defer recoverer(a)
+			for _, elem := range p.Elements {
+				d.Dispatch(elem, a)
 			}
-		}()
+		})
 	}
+}
+
+// getRegEx returns a regexp.Regexp for the given address.
+func getRegEx(pattern string) (*regexp.Regexp, error) {
+	r := strings.NewReplacer(
+		".", `\.`,
+		"(", `\(`,
+		")", `\)`,
+		"*", "[^/]*",
+		"{", "(",
+		",", "|",
+		"}", ")",
+		"?", "[^/]",
+		"!", "^",
+	)
+	pattern = r.Replace(pattern)
+
+	return regexp.Compile(pattern)
 }

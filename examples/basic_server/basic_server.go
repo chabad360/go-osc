@@ -1,67 +1,33 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"net"
-	"os"
-
 	"github.com/chabad360/go-osc/osc"
+	"net"
 )
 
 func main() {
-	addr := "127.0.0.1:8765"
-	server := &osc.Server{}
-	conn, err := net.ListenPacket("udp", addr)
-	if err != nil {
-		fmt.Println("Couldn't listen: ", err)
-	}
-	defer conn.Close()
+	addr := "127.0.0.1:7001"
 
-	fmt.Println("### Welcome to go-osc receiver demo")
-	fmt.Println("Press \"q\" to exit")
+	fmt.Println("### Welcome to go-osc server demo")
 
-	go func() {
-		fmt.Println("Start listening on", addr)
+	fmt.Println("Start listening on", addr)
+	fmt.Println(osc.ListenAndServe(addr, handle))
+}
 
-		for {
-			packet, err := server.ReceivePacket(conn)
-			if err != nil {
-				fmt.Println("Server error: " + err.Error())
-				os.Exit(1)
-			}
+func handle(packet osc.Packet, addr net.Addr) {
+	switch p := packet.(type) {
+	default:
+		fmt.Println("Unknown packet type!")
 
-			if packet != nil {
-				switch packet.(type) {
-				default:
-					fmt.Println("Unknow packet type!")
+	case *osc.Message:
+		fmt.Printf("-- OSC Message (%s):\tAddress: \"%s\"\tArguments: %v\n", addr, p.Address, p.Arguments)
 
-				case *osc.Message:
-					fmt.Printf("-- OSC Message: ")
-					osc.PrintMessage(packet.(*osc.Message))
-
-				case *osc.Bundle:
-					fmt.Println("-- OSC Bundle:")
-					bundle := packet.(*osc.Bundle)
-					for i, message := range bundle.Messages {
-						fmt.Printf("  -- OSC Message #%d: ", i+1)
-						osc.PrintMessage(message)
-					}
-				}
-			}
-		}
-	}()
-
-	reader := bufio.NewReader(os.Stdin)
-
-	for {
-		c, err := reader.ReadByte()
-		if err != nil {
-			os.Exit(0)
-		}
-
-		if c == 'q' {
-			os.Exit(0)
+	case *osc.Bundle:
+		fmt.Printf("-- OSC Bundle (%s):\tTimeTag: %v\tElements: %d\n", addr, p.Timetag.Time(), len(p.Elements))
+		for _, p := range p.Elements {
+			fmt.Printf("\t")
+			handle(p, addr)
 		}
 	}
 }

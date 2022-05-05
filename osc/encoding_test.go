@@ -1,14 +1,41 @@
 package osc
 
 import (
-	"bytes"
 	"errors"
 	"io"
 	"reflect"
 	"testing"
 )
 
-func TestReadPaddedString(t *testing.T) {
+func TestParseBlob(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		args    []byte
+		want    []byte
+		want1   int
+		wantErr bool
+	}{
+		{"negative value", []byte{255, 255, 255, 255}, nil, 0, true},
+		{"large value", []byte{0, 1, 17, 112}, nil, 0, true},
+		{"proper value", []byte{0, 0, 0, 1, 10, 0, 0, 0}, []byte{10}, 8, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1, err := parseBlob(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseBlob() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseBlob() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("parseBlob() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
+
+func TestParsePaddedString(t *testing.T) {
 	for _, tt := range []struct {
 		buf   []byte // buffer
 		want  int    // bytes needed
@@ -22,9 +49,9 @@ func TestReadPaddedString(t *testing.T) {
 		{[]byte{'t', 'e', 's', 't'}, 0, "", io.EOF},           // if there is no null byte at the end, it doesn't work.
 		{[]byte{0, 0, 0, 0}, 4, "", nil},
 	} {
-		got, got1, err := readPaddedString(bytes.NewBuffer(tt.buf))
+		got, got1, err := parsePaddedString(tt.buf)
 		if !errors.Is(err, tt.err) {
-			t.Errorf("%s: Error reading padded string: %s", tt.want1, err)
+			t.Errorf("%s: Error parseing padded string: %s", tt.want1, err)
 		}
 		if got1 != tt.want {
 			t.Errorf("%s: Bytes needed don't match; got = %d, want = %d", tt.want1, got1, tt.want)
@@ -36,12 +63,11 @@ func TestReadPaddedString(t *testing.T) {
 }
 
 func TestWritePaddedString(t *testing.T) {
-	buf := []byte{}
-	bytesBuffer := bytes.NewBuffer(buf)
+	buf := make([]byte, 12)
 	testString := "testString"
 	expectedNumberOfWrittenBytes := len(testString) + padBytesNeeded(len(testString))
 
-	if n := writePaddedString(testString, bytesBuffer); n != expectedNumberOfWrittenBytes {
+	if n := writePaddedString(testString, buf); n != expectedNumberOfWrittenBytes {
 		t.Errorf("Expected number of written bytes should be \"%d\" and is \"%d\"", expectedNumberOfWrittenBytes, n)
 	}
 }
@@ -84,29 +110,32 @@ func TestPadBytesNeeded(t *testing.T) {
 	}
 }
 
-func TestReadBlob(t *testing.T) {
-	for _, tt := range []struct {
+func Test_writeTypeTags(t *testing.T) {
+	tests := []struct {
 		name    string
-		args    []byte
-		want    []byte
-		want1   int
+		elems   []interface{}
+		want    int
+		want2   []byte
 		wantErr bool
 	}{
-		{"negative value", []byte{255, 255, 255, 255}, nil, 0, true},
-		{"large value", []byte{0, 1, 17, 112}, nil, 0, true},
-		{"proper value", []byte{0, 0, 0, 1, 10, 0, 0, 0}, []byte{10}, 8, false},
-	} {
+		{"string", []interface{}{"hello"}, 4, append([]byte(",s"), 0, 0), false},
+		{"nil_True_False", []interface{}{nil, true, false}, 8, append([]byte(",NTF"), 0, 0, 0, 0), false},
+		{"invalid_type", []interface{}{123}, 1, []byte{','}, true},
+		{"empty", []interface{}{}, 4, []byte{',', 0, 0, 0}, false},
+	}
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := readBlob(bytes.NewBuffer((tt.args)))
+			b := make([]byte, tt.want)
+			got, err := writeTypeTags(tt.elems, b)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("readBlob() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("writeTypeTags() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("readBlob() got = %v, want %v", got, tt.want)
+			if got != tt.want {
+				t.Errorf("writeTypeTags() got = %v, want %v", got, tt.want)
 			}
-			if got1 != tt.want1 {
-				t.Errorf("readBlob() got1 = %v, want %v", got1, tt.want1)
+			if !reflect.DeepEqual(b, tt.want2) {
+				t.Errorf("writeTypeTags() result = %s, want %s", b, tt.want2)
 			}
 		})
 	}
