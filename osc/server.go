@@ -27,18 +27,19 @@ func (s *Server) ListenAndServe() error {
 		return fmt.Errorf("ListenAndServe: missing handler")
 	}
 
-	var err error
-	s.conn, err = net.ListenPacket("udp", s.Addr)
+	conn, err := net.ListenPacket("udp", s.Addr)
 	if err != nil {
 		return err
 	}
-	defer s.Close()
+	//defer s.Close()
 
-	return s.Serve()
+	return s.Serve(conn)
 }
 
-// Serve retrieves incoming OSC packets.
-func (s *Server) Serve() error {
+// Serve retrieves incoming OSC packets from a net.PacketConn
+func (s *Server) Serve(conn net.PacketConn) error {
+	s.conn = conn
+
 	var falloff time.Duration
 	for {
 		msg, addr, err := s.readFromConnection()
@@ -57,6 +58,7 @@ func (s *Server) Serve() error {
 			} else if !ok {
 				continue // TODO: allow logging of invalid packets
 			}
+			s.conn.Close()
 			return err
 		}
 		falloff = 0
